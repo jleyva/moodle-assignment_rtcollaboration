@@ -7,6 +7,14 @@
  *
  * php port by Tobias Buschor shwups.ch
  *
+ * Partial UTF-8 support added by Juan Leyva <juanleyvadelgado@gmail.com>
+ * See diff_commonPrefix, the function mb_str_split have been added
+ * Iterating over a UTF-8 string as an array doesn't works
+ * Functions that iterates in this way must be fixed using mb_str_split
+ * The only function fixed is diff_commonPrefix
+ * Also the encodeURI and decodeURI functions have been changed to work with UTF-8 
+ *
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -96,15 +104,17 @@ class diff_match_patch {
 		}
 
 		// Trim off common prefix (speedup)
-		$commonlength = $this->diff_commonPrefix($text1, $text2);
+        $commonlength = $this->diff_commonPrefix($text1, $text2);
 		$commonprefix = mb_substr($text1, 0, $commonlength);
+
 		$text1 = mb_substr($text1, $commonlength);
 		$text2 = mb_substr($text2, $commonlength);
 
 		// Trim off common suffix (speedup)
 		$commonlength = $this->diff_commonSuffix($text1, $text2);
 		$commonsuffix = mb_substr($text1, mb_strlen($text1) - $commonlength);
-		$text1 = mb_substr($text1, 0, mb_strlen($text1) - $commonlength);
+        
+        $text1 = mb_substr($text1, 0, mb_strlen($text1) - $commonlength);
 		$text2 = mb_substr($text2, 0, mb_strlen($text2) - $commonlength);
 
 		// Compute the diff on the middle block
@@ -605,6 +615,8 @@ class diff_match_patch {
 	 *     string.
 	 */
 	function diff_commonPrefix($text1, $text2) {
+        $text1 = mb_str_split($text1);
+        $text2 = mb_str_split($text2);
 		for ($i = 0; 1; $i++) {
 			if(!isset($text1[$i]) || !isset($text2[$i]) || $text1[$i] !== $text2[$i] ){
 				return $i;
@@ -1228,6 +1240,7 @@ class diff_match_patch {
 			switch ($diffs[$x][0]) {
 				case DIFF_INSERT :
 					$text[$x] = '+' .encodeURI($diffs[$x][1]);
+                    //$text[$x] = ($text[$x] == '+')? '': $text[$x];
 					break;
 				case DIFF_DELETE :
 					$text[$x] = '-' .mb_strlen($diffs[$x][1]);
@@ -2082,14 +2095,10 @@ function mb_str_split($str, $length = 1) {
 
 function encodeURI($v) {
 //	return $v;
-	global $uri_translateFrom, $uri_translateTo;
-    
-	//$v = str_replace('%','%25',$v);
-	//$v = str_replace($uri_translateFrom,$uri_translateTo,$v);
-	//return $v;
-    // New Mobwrite.php
-    //return urlencode($v);
-    $char_allowed_table = "!~*'();/?:@&=+$,# \"";
+	global $uri_translateFrom, $uri_translateTo, $char_allowed_table;
+       
+    if(! mb_check_encoding($v,'UTF-8'))
+        $v = utf8_encode($v);
     
     $result = '';
     $chars = mb_str_split($v);
@@ -2098,10 +2107,7 @@ function encodeURI($v) {
             if(strpos($char_allowed_table, $c) !== false){
                 $result .= $c;
             }
-/*            if(in_array($c,$uri_translateFrom) != false){
-                $result .= str_replace($uri_translateFrom,$uri_translateTo,$c);
-            }
-*/            else{
+            else{
                 $result .= urlencode($c);
             }
         }
@@ -2110,26 +2116,10 @@ function encodeURI($v) {
     return $result;
 }
 function decodeURI($v) {
-//	return $v;
-	global $uri_translateFrom, $uri_translateTo;
-	//$v = str_replace('%25','%',$v);
-	//return str_replace($uri_translateTo,$uri_translateFrom,$v);
-    // New Mobwrite.php    
     return urldecode($v);
-    $result = '';
-    $chars = mb_str_split($v);
-    if($chars){
-        foreach($chars as $c){            
-            if(in_array($c,$uri_translateTo) != false){
-                $result .= str_replace($uri_translateTo,$uri_translateFrom,$c);
-            }
-            else{
-                $result .= urldecode($c);
-            }
-        }
-    }
-    return $result;    
 }
+
+$char_allowed_table = "!~*'();/?:@&=+$,# ";
 $uri_translateFrom = 	array("\n", '`',  '[',  ']',  '\\', '^',  '|',  '{',  '}',  '"',  '<',  '>', );
 $uri_translateTo = 		array('%0A','%60','%5B','%5D','%5C','%5E','%7C','%7B','%7D','%22','%3C','%3E');
 

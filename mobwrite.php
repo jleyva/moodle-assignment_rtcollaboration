@@ -1,21 +1,24 @@
 <?php
 
-/* Free PHP Implementation of http://code.google.com/p/google-mobwrite
+/**
+ * PHP Implementation of http://code.google.com/p/google-mobwrite
  * This is not a Daemon. It is an AJAX request Controller, a DataBase backend is needed for data persistency
  * Protocol:  http://code.google.com/p/google-mobwrite/wiki/Protocol
  * More info: http://www.youtube.com/watch?v=S2Hp_1jqpY8
  * @author Juan Leyva <juanleyvadelgado@gmail.com>
 */
 
-// If you want use this PHP code for other projet different of Moodle you must:
-// Delete the Moodle related stuff: $USER, optional_param, sesskey checking, ...
-// Reimplement the DB backend functions: insert_record, get_record, *_record to match your Database Server
-
+/* If you want use this PHP code for other project you must:
+ * Delete the Moodle related stuff: $USER, optional_param, sesskey checking, ...
+ * Reimplement the DB backend functions: insert_record, get_record, *_record to match your Database Server
+ */
 
 include('../../../../config.php');
 
 // Credits: https://github.com/nuxodin/diff_match_patch-php
-include('diff_match_patch.php');
+require('diff_match_patch.php');
+require('../../lib.php');
+require('assignment.class.php');
 
 // Singleton for diff_match_patch class
 function mobwrite_dmp(){
@@ -62,7 +65,8 @@ class TextObj {
         return true;
     }
 
-    function set_text($newtext){
+    function set_text($newtext, $diffs = false){
+        global $USER;
         // Scrub the text before setting it->
         if ($newtext){
             // Keep the text within the length limit->
@@ -74,9 +78,30 @@ class TextObj {
             $newtext = str_replace(array("\r\n","\r","\n"), "\n", $newtext);
                 
             if ($this->text != $newtext){
-              $this->text = $newtext;
-              $this->changed = true;
-              $this->save();
+                mobwrite_debug("TextObj updating: New text: $newtext//Old Text: ".$this->text);
+                
+                $tdiff = new stdclass;
+                $tdiff->textid = $this->dbid;
+                $tdiff->userid = $USER->id;
+                $newlen = mb_strlen($newtext);
+                $oldlen = mb_strlen($this->text);
+                $tdiff->charsadded = ($newlen > $oldlen)? $newlen - $oldlen: 0;
+                $tdiff->charsdeleted = ($newlen < $oldlen)? $oldlen - $newlen: 0;                
+                if($diffs){
+                    mobwrite_dmp()->diff_cleanupEfficiency($diffs);
+                    $tdiff->diff = addslashes(mobwrite_dmp()->diff_toDelta($diffs));
+                    $tdiff->fulldump = 0;
+                }
+                else{
+                    $tdiff->diff = $newtext;
+                    $tdiff->fulldump = 1;
+                }
+                $tdiff->timestamp = time();                
+                insert_record('assignment_rtcollab_diff',$tdiff);
+                
+                $this->text = $newtext;
+                $this->changed = true;
+                $this->save();
             }
         }
         $this->lasttime = time();
@@ -105,31 +130,45 @@ class TextObj {
             //$lockedtext = get_record_select('assignment_rtcollab_text',"assignment = {$this->name} AND (groupid = 0 OR groupid = $currentgroup) $locksql");        
             execute_sql("UPDATE {$CFG->prefix}assignment_rtcollab_text SET locked = '{$USER->id}', timelocked = '$timelocked' WHERE id = {$text->id} $locksql", false);
             if(! $lockedtext = get_record('assignment_rtcollab_text','id',$text->id,'locked',$USER->id)){
-                echo "error: Text locked";
+                echo "";
                 die;
             }
-            $this->set_text($text->text);
+            $this->text = $text->text;
             $this->dbid = $text->id;
             $lockedid = $this->dbid;
         }
         else if($text = get_record('assignment_rtcollab_text','assignment',$this->name,'groupid',0)){
-            $this->set_text($text->text);
+            $this->text = $text->text;
             unset($text->id);
             $text->groupid = $currentgroup;
             $text->text = addslashes($text->text);
             $text->locked = $USER->id;
             $text->timelocked = $timelocked;
+            $text->timemodified = $timenow;
             // groupid + assignment is a UNIQUE Key
             if(! $this->dbid = insert_record('assignment_rtcollab_text',$text)){
-                echo "error: Text locked";
+                echo "";
                 die;
             }
             $this->dbid = $text->id;
             $lockedid = $this->dbid;
         }
         else{
-            echo "error: Database failure or the server text is not yet created";
-            die;     
+            $text = new stdclass;
+            $text->assignment = $this->name;
+            $text->groupid = $currentgroup;
+            $text->text = '';
+            $text->locked = $USER->id;
+            $text->timelocked = $timelocked;
+            $text->timemodified = $timenow;
+            
+            if($this->dbid = insert_record('assignment_rtcollab_text', $text)){
+                $this->load();
+            }
+            else{
+                echo "error: Database failure";
+                die;
+            }
         }
     }
 
@@ -143,8 +182,15 @@ class TextObj {
         $text->text = addslashes($this->text);
         $text->timemodified = time();
         
+        mobwrite_debug("TextObj updated in DB");
         update_record('assignment_rtcollab_text', $text);
     }    
+}
+
+function mobwrite_debug($msg){
+    global $USER;
+    if($USER->id == 3)
+        trigger_error($USER->username.': '.$msg, E_USER_NOTICE);
 }
 
 function mobwrite_fetchtextobj($fileid){
@@ -202,6 +248,7 @@ class ViewObj{
             $view->shadow_client_version = 0;
             $view->shadow_server_version = 0;
             $view->backup_shadow_server_version = 0;
+            $view->timemodified = time();
             if(!$this->dbid = insert_record('assignment_rtcollab_view', $view)){
                 echo "error: Database failure";
                 die;
@@ -212,7 +259,20 @@ class ViewObj{
         $this->textobj = mobwrite_fetchtextobj($this->fileid);
     }
     
-    // Function not present in mob_write, needed for persistency in DB
+    // NEW; Function not present in mob_write
+    function reset(){
+        if($view = get_record('assignment_rtcollab_view','userid',$this->userid,'assignment',$this->fileid)){ 
+            $view->shadow = '';
+            $view->backup_shadow = '';
+            $view->shadow_client_version = 0;
+            $view->shadow_server_version = 0;
+            $view->backup_shadow_server_version = 0;
+            $view->timemodified = time();
+            update_record('assignment_rtcollab_view', $view);
+        }
+    }
+    
+    // NEW; Function not present in mob_write, needed for persistency in DB
     function save(){
         // TODO
         $view = new stdclass();
@@ -224,6 +284,7 @@ class ViewObj{
         $view->shadow_client_version = $this->shadow_client_version;
         $view->shadow_server_version = $this->shadow_server_version;
         $view->backup_shadow_server_version = $this->backup_shadow_server_version;
+        $view->timemodified = time();
         update_record('assignment_rtcollab_view', $view);
     }
     
@@ -274,11 +335,13 @@ function mobwrite_parse_request($r){
             
             // Buffers are not supported. TODO Add buffer support using database tmp storage
             if($name == 'b' || $name == 'B'){
+                // Decode and store this entry into a buffer.
                 // See http://code.google.com/p/google-mobwrite/wiki/Protocol Buffer section
                 echo "error: Server does not support buffers";
                 die;
             }
             elseif($name == 'u' || $name == 'U'){
+                // Remember the username.
                 $userid = $value;
                 $echouserid = ($name == 'U');
                 if($userid != $USER->id){
@@ -287,11 +350,18 @@ function mobwrite_parse_request($r){
                 }
             }
             elseif($name == 'f' || $name == 'F'){
+                // Remember the filename and version.
                 // New, use rteditor as prefix
                 $fileid = str_replace(EDITOR_PREFIX,'',$value);
                 $serverversion = $version;
+                if($version == 0){
+                    $tmpviewobj = new ViewObj(array('userid'=>$USER->id, "fileid"=>$fileid));
+                    $tmpviewobj->reset();
+                    $tmpviewobj = null;                    
+                }
             }
             elseif($name == 'n' || $name == 'N'){
+                // Nullify this file.
                 $fileid = str_replace(EDITOR_PREFIX,'',$value);
                 if($userid && $fileid){
                     $action = array();
@@ -302,6 +372,7 @@ function mobwrite_parse_request($r){
                 }                    
             }
             else{
+                // A delta or raw action.
                 $action = array();
                 if($name == 'd' || $name == 'D'){
                     $action['mode'] = "delta";
@@ -347,7 +418,8 @@ function mobwrite_apply_patches(&$viewobj, $diffs, $action){
     
     // Expand the fragile diffs into a full set of patches.
     $patches = mobwrite_dmp()->patch_make($viewobj->shadow, $diffs);
-
+    
+    
     // First, update the client's shadow.
     $viewobj->shadow = mobwrite_dmp()->diff_text2($diffs);
     $viewobj->backup_shadow = $viewobj->shadow;
@@ -366,6 +438,7 @@ function mobwrite_apply_patches(&$viewobj, $diffs, $action){
         if ($action["force"]){
             // Clobber the server's text if a change was received.
             if ($patches){
+                mobwrite_debug("Patches applied to MasterText ".var_export($patches,true));
                 $mastertext = $viewobj->shadow;
             }    
             else{
@@ -375,7 +448,7 @@ function mobwrite_apply_patches(&$viewobj, $diffs, $action){
         else{
             list($mastertext, $results) = mobwrite_dmp()->patch_apply($patches, $textobj->text);
         }
-        $textobj->set_text($mastertext);
+        $textobj->set_text($mastertext, $diffs);
     }
 }
 
@@ -400,8 +473,11 @@ function mobwrite_generate_diffs($viewobj, $printuserid, $printfileid, $force){
         if($mastertext == null){
             $mastertext = "";
         }
+        
+        mobwrite_debug("Creating patch Shadow:{$viewobj->shadow}//Master:$mastertext//");
         // Create the diff between the view's text and the master text.
         $diffs = mobwrite_dmp()->diff_main($viewobj->shadow, $mastertext);
+        //mobwrite_debug("Diff created: ".var_export($diffs, true));
         mobwrite_dmp()->diff_cleanupEfficiency($diffs);
         $text = mobwrite_dmp()->diff_toDelta($diffs);
         
@@ -418,6 +494,9 @@ function mobwrite_generate_diffs($viewobj, $printuserid, $printfileid, $force){
             $viewobj->edit_stack[] = array($viewobj->shadow_server_version, "d:{$viewobj->shadow_server_version}:$text\n");
             $viewobj->shadow_server_version += 1;        
         }
+        
+        if(strlen($text) > 6)
+            mobwrite_debug("Sending patch $text");
     }
     else{
         // Error; server could not parse client's delta.
@@ -433,7 +512,7 @@ function mobwrite_generate_diffs($viewobj, $printuserid, $printfileid, $force){
             $text = $mastertext;
             //$text = text.encode("utf-8")
             //$text = urlrawencode($text);
-            $text = urlencode($text);
+            $text = encodeURI($text);
             $viewobj->edit_stack[] = array($viewobj->shadow_server_version, "R:{$viewobj->shadow_server_version}:$text\n");
         }    
     }
@@ -538,6 +617,7 @@ function mobwrite_do_actions($actions){
             
             }
             else{
+                //mobwrite_debug("Delta recieved ".$action["data"]);
                 // Expand the delta into a diff using the client shadow.
                 try{                    
                     $diffs = mobwrite_dmp()->diff_fromDelta($viewobj->shadow, $action["data"]);
@@ -549,10 +629,10 @@ function mobwrite_do_actions($actions){
               
                 $viewobj->shadow_client_version += 1;
                 if($diffs != null){
-                  // Textobj lock required for read/patch/write cycle.
-                  $textobj->lock_acquire();
-                  mobwrite_apply_patches($viewobj, $diffs, $action);
-                  $textobj->lock_release();
+                    // Textobj lock required for read/patch/write cycle.
+                    $textobj->lock_acquire();
+                    mobwrite_apply_patches($viewobj, $diffs, $action);
+                    $textobj->lock_release();
                 }
             }
         }
@@ -637,6 +717,12 @@ if(!confirm_sesskey()){
     die;
 }
 
+$context = get_context_instance(CONTEXT_MODULE, $cm->id);
+if(! has_capability('mod/assignment:submit', $context)){
+    echo "error: Invalid user";
+    die;
+}
+
 // Check if the assignment is still open
 $time = time();
 if ($assignment->preventlate && $assignment->timedue) {
@@ -644,10 +730,17 @@ if ($assignment->preventlate && $assignment->timedue) {
 } else {
     $isopen = ($assignment->timeavailable <= $time);
 }
-if(! $isopen){
+
+$assignmentinstance = new assignment_rtcollaboration($cm->id, $assignment, $cm, $course);
+$submission = $assignmentinstance->get_submission($USER->id);
+
+$editable = $isopen && (!$submission || $assignment->resubmit || !$submission->timemarked);
+
+if(! $editable){
     echo "error: Assignment closed";
     die;
 }
+
 
 if($r){
     // Users group
@@ -657,6 +750,7 @@ if($r){
     //$r = preg_replace('/%([0-9a-f]{2})/ie', 'chr(hexdec($1))', (string) $r);
     //$r = rawurldecode($r);
     $actions = mobwrite_parse_request($r);
+    
     // Actions are performed over a row in the database with the Shared Text locked.
     echo mobwrite_do_actions($actions)."\n\n";
     // The lock is create when the Text object is loaded (last moment)
