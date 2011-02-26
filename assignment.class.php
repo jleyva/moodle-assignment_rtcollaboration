@@ -57,6 +57,9 @@ class assignment_rtcollaboration extends assignment_base {
             $textdisabled = ($canedit)? '': 'disabled="disabled"';
             echo '<TEXTAREA ID="rteditor'.$this->assignment->id.'" STYLE="width: 100%; height: 100%" rows="30" '.$textdisabled.'></TEXTAREA>';
         }
+		else{
+			print_simple_box(format_text($submission->data1), 'center', '100%');
+		}
 
         $this->view_feedback();
         $this->view_footer();
@@ -70,7 +73,7 @@ class assignment_rtcollaboration extends assignment_base {
         }
         $output = '<div class="files">'.
                   '<img src="'.$CFG->pixpath.'/f/html.gif" class="icon" alt="html" />'.
-                  link_to_popup_window ('/mod/assignment/type/rtcollaboration/file.php?id='.$this->cm->id.'&amp;userid='.
+                  link_to_popup_window ('/mod/assignment/type/rtcollaboration/text.php?id='.$this->cm->id.'&amp;userid='.
                   $submission->userid, 'file'.$userid, shorten_text(trim(strip_tags(format_text($submission->data1,$submission->data2))), 15), 450, 580,
                   get_string('submission', 'assignment'), 'none', true).
                   '</div>';
@@ -86,7 +89,7 @@ class assignment_rtcollaboration extends assignment_base {
 
         $output = '<div class="files">'.
                   '<img align="middle" src="'.$CFG->pixpath.'/f/html.gif" height="16" width="16" alt="html" />'.
-                  link_to_popup_window ('/mod/assignment/type/rtcollaboration/file.php?id='.$this->cm->id.'&amp;userid='.
+                  link_to_popup_window ('/mod/assignment/type/rtcollaboration/text.php?id='.$this->cm->id.'&amp;userid='.
                   $submission->userid, 'file'.$userid, shorten_text(trim(strip_tags(format_text($submission->data1,$submission->data2))), 15), 450, 580,
                   get_string('submission', 'assignment'), 'none', true).
                   '</div>';
@@ -139,9 +142,32 @@ class assignment_rtcollaboration extends assignment_base {
                 $users = get_records('assignment_rtcollab_view','assignment',$a->id);
                 if($users){
                     foreach($users as $u){
+						//TODO Get text using group
+						if(! $text = get_record('assignment_rtcollab_text','assignment', $a->id))
+							continue;
+							
                         if(! $submission = get_record('assignment_submissions','assignment',$a->id,'userid',$USER->id)){
-                            //
+							$submission = new stdclass;
+							$submission->assignment   = $a->id;
+							$submission->userid       = $users->userid;
+							$submission->timecreated  = time();
+							$submission->timemodified = $submission->timecreated;							
+							$submission->numfiles     = 0;
+							$submission->data1        = addslashes($text->text);
+							$submission->data2        = '';
+							$submission->grade        = -1;
+							$submission->submissioncomment      = '';
+							$submission->format       = 0;
+							$submission->teacher      = 0;
+							$submission->timemarked   = 0;
+							$submission->mailed       = 0;
+							insert_record('assignment_submissions',$submission);
                         }
+						else{
+							$submission->data1        = addslashes($text->text);
+							$submission->timemodified = time();
+							update_record('assignment_submissions',$submission);
+						}
                     }
                 }
             }
@@ -152,8 +178,9 @@ class assignment_rtcollaboration extends assignment_base {
     // Users does not submit theirself theirs assignments
     function submit_pending_submissions(){
         $timenow = time();
+		$daysecs = 24*60*60;
         // In date assignments        
-        $assignments = get_records_sql("SELECT a.*,t.text,t.groupid FROM {$CFG->prefix}assignment a LEFT JOIN {$CFG->prefix}assignment_rtcollab_text t ON a.id = t.assignment WHERE $timenow > a.timeavailable AND ($timenow < a.timedue OR ($timenow > a.timedue AND a.preventlate = 0))");
+        $assignments = get_records_sql("SELECT a.*,t.text,t.groupid FROM {$CFG->prefix}assignment a LEFT JOIN {$CFG->prefix}assignment_rtcollab_text t ON a.id = t.assignment WHERE $timenow > a.timeavailable AND (($timenow < a.timedue AND a.timedue - $timenow < $daysecs) OR ($timenow > a.timedue AND a.preventlate = 0))");
         $this->submit_pending_assignments($assignments);        
     }
     
@@ -161,6 +188,25 @@ class assignment_rtcollaboration extends assignment_base {
     function cron(){
         $this->submit_pending_submissions();
     }
+	
+	// TODO - This should be improve
+	function user_group($userid=''){
+		global $USER;
+	
+		if(!$userid)
+			$userid = $USER->id;
+			
+		$groupmode    = groups_get_activity_groupmode($this->cm->id);
+		if(!$groupmode)	
+			return 0;
+		
+		$groups = groups_get_user_groups($this->course->id, $userid);
+		if(empty($groups[0]))
+			return 0;
+			
+		return array_shift($groups[0]);
+    
+	}
 
 }
 

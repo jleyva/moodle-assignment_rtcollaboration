@@ -21,7 +21,11 @@ function rcollaborationGetDiffSuccess(o){
         }    
         else{
             //rcollaborationMaintext.innerHTML += decodeURI(diffs[diff].diff);
-            diffs = rcollaborationDMP.diff_fromDelta(rcollaborationMaintext.innerHTML, diffs[diff].diff);            
+            var dmpDiffs = rcollaborationDMP.diff_fromDelta(rcollaborationMaintext.innerHTML, diffs[diff].diff);if if(dmpDiffs && (dmpDiffs.length != 1 || dmpDiffs[0][0] != DIFF_EQUAL)) {
+				var patches = rcollaborationDMP.patch_make(rcollaborationMaintext.innerHTML, dmpDiffs);
+				var serverResult = rcollaborationDMP.patch_apply(patches, rcollaborationMaintext.innerHTML);
+				rcollaborationMaintext.innerHTML = serverResult[0];
+			}          
         }
         rcollaborationDiffId = diffs[diff].id;
     }

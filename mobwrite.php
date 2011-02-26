@@ -225,12 +225,16 @@ class ViewObj{
     var $lasttime = 0;
     var $textobj = null;
     var $dbid = 0;
+	var $groupid = 0;
     
     function ViewObj($data){
+		global $currentgroup;
+		
         $this->userid = $data['userid'];
         $this->fileid = $data['fileid'];
         // TODO Clean times
-        if($view = get_record('assignment_rtcollab_view','userid',$this->userid,'assignment',$this->fileid)){            
+        if($view = get_record('assignment_rtcollab_view','userid',$this->userid,'assignment',$this->fileid)){ 
+			$this->groupid = $view->groupid;
             $this->shadow_client_version = $view->shadow_client_version;
             $this->shadow_server_version = $view->shadow_server_version;
             $this->backup_shadow_server_version = $view->backup_shadow_server_version;
@@ -243,6 +247,7 @@ class ViewObj{
             $view = new stdclass();
             $view->userid = $this->userid;
             $view->assignment = $this->fileid;
+			$view->groupid = $currentgroup;
             $view->shadow = '';
             $view->backup_shadow = '';
             $view->shadow_client_version = 0;
@@ -279,6 +284,7 @@ class ViewObj{
         $view->id = $this->dbid;
         $view->userid = $this->userid;
         $view->assignment = $this->fileid;
+		$view->groupid = $this->groupid;
         $view->shadow = addslashes($this->shadow);
         $view->backup_shadow = addslashes($this->backup_shadow);
         $view->shadow_client_version = $this->shadow_client_version;
@@ -743,9 +749,8 @@ if(! $editable){
 
 
 if($r){
-    // Users group
-    $groupmode    = groups_get_activity_groupmode($cm);
-    $currentgroup = groups_get_activity_group($cm);
+    // User group
+    $currentgroup = $assignmentinstance->user_group();
     
     //$r = preg_replace('/%([0-9a-f]{2})/ie', 'chr(hexdec($1))', (string) $r);
     //$r = rawurldecode($r);
