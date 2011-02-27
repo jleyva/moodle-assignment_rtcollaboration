@@ -1,11 +1,11 @@
-<?php  // $Id: file.php,v 1.6 2006/08/31 08:51:09 toyomoyo Exp $
+<?php
 
     require("../../../../config.php");
     require("../../lib.php");
     require("assignment.class.php");
  
     $id     = required_param('id', PARAM_INT);      // Course Module ID
-    $mode = optional_param('mode','normal',PARAM_ALPHA);
+    $mode = optional_param('mode','overview',PARAM_ALPHA);
 	$userid = optional_param('userid', 0, PARAM_INT);
 	$diffid = optional_param('diffid', -1, PARAM_INT);
 
@@ -25,13 +25,13 @@
 
 	if ($userid && ! $user = get_record("user", "id", $userid)) {
         error("User is misconfigured");
-    }
-	
+    }	
 	$userid = (isset($user) && $user->id)? $user->id : $USER->id;
 	
 	$assignmentinstance = new assignment_rtcollaboration($cm->id, $assignment, $cm, $course);	
 	
-	if (! $text = get_record("assignment_rtcollab_text", "assignment", $assignment->id,'groupid',$assignmentinstance->user_group($userid))) {
+	$usergroup = $assignmentinstance->user_group($userid);
+	if (! $text = get_record("assignment_rtcollab_text", "assignment", $assignment->id,'groupid',$usergroup)) {
         error("Text ID was incorrect");
     }	
 
@@ -43,7 +43,8 @@
         error("You can not view this assignment");
     }
 	
-	if (($USER->id != $user->id) && !has_capability('mod/assignment:grade',$context)) {
+	$cangrade = has_capability('mod/assignment:grade',$context);
+	if (($USER->id != $user->id) && !$cangrade) {
         error("You can not view this assignment");
     }
 
@@ -59,8 +60,8 @@
     }
 
     // XHR / AJAX Call
-    if($diffid > -1){
-        $diffs = get_records_select('assignment_rtcollab_diff',"id > $diffid LIMIT 1");
+    if($mode == 'review' && $diffid > -1){
+        $diffs = get_records_select('assignment_rtcollab_diff',"textid = {$text->id} AND id > $diffid LIMIT 5");
         $jsonresponse = array();
         if($diffs){
             foreach($diffs as $d){
@@ -73,29 +74,24 @@
     }
     
 	// Normal mode does not require js
-	if($mode != 'normal'){
+	if($mode == 'review'){
 		$yuijsfiles = array('yahoo-dom-event/yahoo-dom-event','yahoo/yahoo-min','json/json-min','connection/connection-min');    
 		foreach($yuijsfiles as $f)
 		   require_js($CFG->wwwroot.'/lib/yui/'.$f.'.js');
 	
+		require_js($CFG->wwwroot.'/mod/assignment/type/rtcollaboration/diff_match_patch.js');
 		require_js($CFG->wwwroot.'/mod/assignment/type/rtcollaboration/replay.js');
-	}
-    require_js($CFG->wwwroot.'/mod/assignment/type/rtcollaboration/diff_match_patch.js');
-    
+	}    
 	
 	// OUTPUT
     print_header(format_string($assignment->name));
     print_simple_box_start('center', '', '', '', 'generalbox', 'dates');
+	
+	$currenttab = $mode;
+	if($cangrade)
+		include_once('tabs.php');
     
-	if($mode != 'normal'){
-		echo '<script type="text/javascript"><!--
-			var pageId = '.$id.';
-			var textId = '.$text->id.';
-		
-		--></script>';
-		echo '<div id="maintext" style="overflow: auto; width: 100%; height:600px"></div>';		
-    }
-	else{
+	if ($mode == 'overview'){
 			
 		$usertext = '';
 		// The text was submited at least one time
@@ -107,12 +103,42 @@
 			$usertext = $text->text;
 		}
 		
-		if($chars = get_record_sql("SELECT SUM(charsadded) as charsadded, SUM(charsdeleted) as charsdeleted FROM {$CFG->prefix}assignment_rtcollab_diff WHERE textid = {$text->id}")){
-			echo get_string('charsadded','assignment_rtcollaboration').': <b>'.$chars->charsadded.'</b><br />';
-			echo get_string('charsdeleted','assignment_rtcollaboration').': <b>'.$chars->charsdeleted.'</b><br />';
-		}		
+		if($userid != $USER->id)
+			print_heading(fullname($user));
+		else
+			print_heading(fullname($USER));
+			
+		list($charsadded, $charsdeleted, $firstedited, $lastedited) = $assignmentinstance->get_chars_edited($userid);
+		if(!empty($charsadded) || !empty($charsdeleted)){
+			echo get_string('charsadded','assignment_rtcollaboration').' <b>'.$charsadded.'</b><br />';
+			echo get_string('charsdeleted','assignment_rtcollaboration').' <b>'.$charsdeleted.'</b><br />';
+			echo get_string('firstedited','assignment_rtcollaboration').' <b>'.(userdate($firstedited)).'</b><br />';
+			echo get_string('lastedited','assignment_rtcollaboration').' <b>'.(userdate($lastedited)).'</b><br />';
+		}
+		else{
+			echo get_string('userhasnotparticipate','assignment_rtcollaboration');
+		}
 		
-		print_simple_box(format_text($text), 'center', '100%');
+		
+		print_simple_box(format_text($usertext, FORMAT_PLAIN), 'center', '100%');
+    }
+	else if($mode == 'textstatistics' && $cangrade){
+		if($stats = get_records_sql("SELECT u.id, u.firstname, u.lastname, SUM(d.charsadded) as totalcharsadded, SUM(d.charsdeleted) as totalcharsdeleted, MAX(d.timestamp) as lastedited, MIN(d.timestamp) as firstedited FROM {$CFG->prefix}assignment_rtcollab_diff d, {$CFG->prefix}assignment_rtcollab_view v, {$CFG->prefix}user u WHERE u.id = d.userid AND v.userid = d.userid AND d.textid = {$text->id} GROUP BY d.userid ORDER BY totalcharsadded DESC")){
+			$table = new stdclass;
+			$table->head = array(get_string('user'),get_string('charsadded','assignment_rtcollaboration'),get_string('charsdeleted','assignment_rtcollaboration'),get_string('firstedited','assignment_rtcollaboration'),get_string('lastedited','assignment_rtcollaboration'));
+			foreach($stats as $s){
+				$table->data[] = array('<a href="text.php?id='.$id.'&userid='.$s->id.'">'.(fullname($s)).'</a>',$s->totalcharsadded,$s->totalcharsdeleted,userdate($s->firstedited),userdate($s->lastedited));
+			}
+			print_table($table);
+		}	
+	}	
+	else if($mode == 'review' && $cangrade){
+		echo '<script type="text/javascript"><!--
+			var pageId = '.$id.';
+			var textId = '.$text->id.';
+		
+		--></script>';
+		echo '<TEXTAREA ID="maintext" STYLE="width: 100%; height: 100%" rows="30" disabled="disabled"></TEXTAREA>';
     }
 	
     print_simple_box_end();

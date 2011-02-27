@@ -10,6 +10,11 @@
 
 require_once($CFG->libdir.'/formslib.php');
 
+if( !function_exists('json_encode') ) {
+	require_once($CFG->libdir.'/pear/HTML/AJAX/JSON.php');
+}
+
+
 /**
  * Extend the base assignment class for assignments with a real time collaboration editor
  *
@@ -71,47 +76,30 @@ class assignment_rtcollaboration extends assignment_base {
         if (!$submission = $this->get_submission($userid)) {
             return '';
         }
+		
+		list($charsadded, $charsdeleted, $firstedited, $lastedited) = $this->get_chars_edited($userid);
+		if(!empty($charsadded) || !empty($charsdeleted)){
+			$stats = get_string('charsadded','assignment_rtcollaboration').' <b>'.$charsadded.'</b><br />';
+			$stats .= get_string('charsdeleted','assignment_rtcollaboration').' <b>'.$charsdeleted.'</b><br />';
+		}
+		else{
+			$stats = get_string('userhasnotparticipate','assignment_rtcollaboration');
+		}
+		
+		
         $output = '<div class="files">'.
                   '<img src="'.$CFG->pixpath.'/f/html.gif" class="icon" alt="html" />'.
-                  link_to_popup_window ('/mod/assignment/type/rtcollaboration/text.php?id='.$this->cm->id.'&amp;userid='.
-                  $submission->userid, 'file'.$userid, shorten_text(trim(strip_tags(format_text($submission->data1,$submission->data2))), 15), 450, 580,
-                  get_string('submission', 'assignment'), 'none', true).
-                  '</div>';
-                  return $output;
+                  '<a href="'.$CFG->wwwroot.'/mod/assignment/type/rtcollaboration/text.php?id='.$this->cm->id.'&amp;userid='.
+                  $submission->userid.'" target="_blank">'.(get_string('submission', 'assignment')).'</a><br/>'.
+                  $stats.'</div>';
+		return $output;
+
     }
 
     function print_user_files($userid, $return=false) {
         global $CFG;
 
-        if (!$submission = $this->get_submission($userid)) {
-            return '';
-        }
-
-        $output = '<div class="files">'.
-                  '<img align="middle" src="'.$CFG->pixpath.'/f/html.gif" height="16" width="16" alt="html" />'.
-                  link_to_popup_window ('/mod/assignment/type/rtcollaboration/text.php?id='.$this->cm->id.'&amp;userid='.
-                  $submission->userid, 'file'.$userid, shorten_text(trim(strip_tags(format_text($submission->data1,$submission->data2))), 15), 450, 580,
-                  get_string('submission', 'assignment'), 'none', true).
-                  '</div>';
-
-        ///Stolen code from file.php
-
-        print_simple_box_start('center', '', '', 0, 'generalbox', 'wordcount');
-    /// Decide what to count
-        if ($CFG->assignment_itemstocount == ASSIGNMENT_COUNT_WORDS) {
-            echo ' ('.get_string('numwords', '', count_words(format_text($submission->data1, $submission->data2))).')';
-        } else if ($CFG->assignment_itemstocount == ASSIGNMENT_COUNT_LETTERS) {
-            echo ' ('.get_string('numletters', '', count_letters(format_text($submission->data1, $submission->data2))).')';
-        }
-        print_simple_box_end();
-        print_simple_box(format_text($submission->data1, $submission->data2), 'center', '100%');
-
-        ///End of stolen code from file.php
-
-        if ($return) {
-            //return $output;
-        }
-        //echo $output;
+        echo $this->print_student_answer($userid, $return);
     }
 
 
@@ -149,7 +137,7 @@ class assignment_rtcollaboration extends assignment_base {
                         if(! $submission = get_record('assignment_submissions','assignment',$a->id,'userid',$USER->id)){
 							$submission = new stdclass;
 							$submission->assignment   = $a->id;
-							$submission->userid       = $users->userid;
+							$submission->userid       = $u->userid;
 							$submission->timecreated  = time();
 							$submission->timemodified = $submission->timecreated;							
 							$submission->numfiles     = 0;
@@ -177,11 +165,13 @@ class assignment_rtcollaboration extends assignment_base {
     // Check for pending submissions
     // Users does not submit theirself theirs assignments
     function submit_pending_submissions(){
+		global $CFG;
+		
         $timenow = time();
 		$daysecs = 24*60*60;
         // In date assignments        
         $assignments = get_records_sql("SELECT a.*,t.text,t.groupid FROM {$CFG->prefix}assignment a LEFT JOIN {$CFG->prefix}assignment_rtcollab_text t ON a.id = t.assignment WHERE $timenow > a.timeavailable AND (($timenow < a.timedue AND a.timedue - $timenow < $daysecs) OR ($timenow > a.timedue AND a.preventlate = 0))");
-        $this->submit_pending_assignments($assignments);        
+        $this->submit_pending_assignments($assignments);
     }
     
     
@@ -196,7 +186,7 @@ class assignment_rtcollaboration extends assignment_base {
 		if(!$userid)
 			$userid = $USER->id;
 			
-		$groupmode    = groups_get_activity_groupmode($this->cm->id);
+		$groupmode    = groups_get_activity_groupmode($this->cm);
 		if(!$groupmode)	
 			return 0;
 		
@@ -206,6 +196,18 @@ class assignment_rtcollaboration extends assignment_base {
 			
 		return array_shift($groups[0]);
     
+	}
+	
+	function get_chars_edited($userid){
+		global $CFG;
+		if($text = get_record("assignment_rtcollab_text", "assignment", $this->assignment->id,'groupid',$this->user_group($userid))){
+			if($chars = get_record_sql("SELECT SUM(charsadded) as charsadded, SUM(charsdeleted) as charsdeleted, MAX(timestamp) as lastedited, MIN(timestamp) as firstedited FROM {$CFG->prefix}assignment_rtcollab_diff WHERE textid = {$text->id} AND userid = $userid")){
+				if(!empty($chars->charsadded) || !empty($chars->charsdeleted)){
+					return array($chars->charsadded, $chars->charsdeleted, $chars->firstedited, $chars->lastedited);
+				}
+			}
+		}
+		return array(0,0,0,0);
 	}
 
 }
