@@ -12,6 +12,8 @@
 	$string['currentlyviewing'] = 'Currently viewing: ';
 	$string['submitedtext'] = 'Submited text for evaluation';
 	$string['currenttext'] = 'Current text';
+	$string['viewusersactivity'] = 'View users activity';
+	$string['noinfo'] = 'There is no data for the selected group';
 	
 	$string[''] = '';
 ?>

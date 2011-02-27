@@ -7,6 +7,7 @@
     $id     = required_param('id', PARAM_INT);      // Course Module ID
     $mode = optional_param('mode','overview',PARAM_ALPHA);
 	$userid = optional_param('userid', 0, PARAM_INT);
+	$groupid = optional_param('group', 0, PARAM_INT);
 	$diffid = optional_param('diffid', -1, PARAM_INT);
 
 	$user = null;
@@ -28,17 +29,10 @@
     }	
 	$userid = (isset($user) && $user->id)? $user->id : $USER->id;
 	
-	$assignmentinstance = new assignment_rtcollaboration($cm->id, $assignment, $cm, $course);	
-	
-	$usergroup = $assignmentinstance->user_group($userid);
-	if (! $text = get_record("assignment_rtcollab_text", "assignment", $assignment->id,'groupid',$usergroup)) {
-        error("Text ID was incorrect");
-    }	
-
     require_login($course->id, false, $cm);
 
 	$context = get_context_instance(CONTEXT_MODULE, $cm->id);
-	
+		
     if (!has_capability('mod/assignment:view', $context)) {
         error("You can not view this assignment");
     }
@@ -47,22 +41,44 @@
 	if (($USER->id != $user->id) && !$cangrade) {
         error("You can not view this assignment");
     }
-
-	$groupmode    = groups_get_activity_groupmode($cm);
-	if ($groupmode == SEPARATEGROUPS && !has_capability('moodle/site:accessallgroups', $context)){
-		if(! group_is_member($text->groupid, $USER->id)){
-			error("You can not view this user assignment");
-		}
-	}
 	
     if ($assignment->assignmenttype != 'rtcollaboration') {
         error("Incorrect assignment type");
     }
+	
+	$assignmentinstance = new assignment_rtcollaboration($cm->id, $assignment, $cm, $course);	
+	
+	$groupmode    = groups_get_activity_groupmode($cm);
+	if($groupmode){
+		if ($groupmode == SEPARATEGROUPS){
+			if(has_capability('moodle/site:accessallgroups', $context)){
+				$usergroup = ($groupid)? $groupid : $assignmentinstance->user_group($userid);
+			}
+			else{
+				$usergroup = ($groupid && group_is_member($groupid, $USER->id))? $groupid : $assignmentinstance->user_group($userid);
+			}
+		}
+		else{
+			$usergroup = ($groupid)? $groupid : $assignmentinstance->user_group($userid);
+		}			
+	}
+	else{
+		$usergroup = 0;
+	}
+	
+	$groupid = $usergroup;
 
     // XHR / AJAX Call
     if($mode == 'review' && $diffid > -1){
+		
+		$jsonresponse = array();
+        
+		if (! $text = get_record("assignment_rtcollab_text", "assignment", $assignment->id,'groupid',$usergroup)) {
+			echo json_encode($jsonresponse);
+			die;
+		}
+		
         $diffs = get_records_select('assignment_rtcollab_diff',"textid = {$text->id} AND id > $diffid LIMIT 5");
-        $jsonresponse = array();
         if($diffs){
             foreach($diffs as $d){
 				$d->date = userdate($d->timestamp);
@@ -86,12 +102,19 @@
 	
 	// OUTPUT
     print_header(format_string($assignment->name));
-    print_simple_box_start('center', '', '', '', 'generalbox', 'dates');
+    
+	
+	print_simple_box_start('center', '', '', '', 'generalbox', 'dates');
 	
 	$currenttab = $mode;
 	if($cangrade)
 		include_once('tabs.php');
     
+	if (! $text = get_record("assignment_rtcollab_text", "assignment", $assignment->id,'groupid',$usergroup)) {
+        echo get_string('noinfo','assignment_rtcollaboration');
+		exit;
+	}
+	
 	if ($mode == 'overview'){
 			
 		$submitedtext = '';
@@ -133,6 +156,15 @@
 		
 	}
 	else if($mode == 'textstatistics' && $cangrade){
+	
+		/// Check to see if groups are being used here
+		$groupmode = groups_get_activity_groupmode($cm);
+		$currentgroup = groups_get_activity_group($cm, true);
+		groups_print_activity_menu($cm, $CFG->wwwroot . "/mod/assignment/type/rtcollaboration/text.php?id={$cm->id}&userid=$userid&mode=textstatistics");
+	
+		echo '<div style="clear: both"></div>';
+
+	
 		if($stats = get_records_sql("SELECT u.id, u.firstname, u.lastname, SUM(d.charsadded) as totalcharsadded, SUM(d.charsdeleted) as totalcharsdeleted, MAX(d.timestamp) as lastedited, MIN(d.timestamp) as firstedited FROM {$CFG->prefix}assignment_rtcollab_diff d, {$CFG->prefix}assignment_rtcollab_view v, {$CFG->prefix}user u WHERE u.id = d.userid AND v.userid = d.userid AND d.textid = {$text->id} GROUP BY d.userid ORDER BY totalcharsadded DESC")){
 			$table = new stdclass;
 			$table->head = array(get_string('user'),get_string('charsadded','assignment_rtcollaboration'),get_string('charsdeleted','assignment_rtcollaboration'),get_string('firstedited','assignment_rtcollaboration'),get_string('lastedited','assignment_rtcollaboration'));
@@ -148,6 +180,13 @@
 			var textId = '.$text->id.';
 		
 		--></script>';
+		
+		/// Check to see if groups are being used here
+		$groupmode = groups_get_activity_groupmode($cm);
+		$currentgroup = groups_get_activity_group($cm, true);
+		groups_print_activity_menu($cm, $CFG->wwwroot . "/mod/assignment/type/rtcollaboration/text.php?id={$cm->id}&userid=$userid&mode=review");
+		
+		echo '<div style="clear: both"></div>';
 		
 		if($stats = get_record_sql("SELECT MAX(d.timestamp) as lastedited, MIN(d.timestamp) as firstedited FROM {$CFG->prefix}assignment_rtcollab_diff d WHERE d.textid = {$text->id}")){
 			echo get_string('firstedited','assignment_rtcollaboration').' <b>'.(userdate($stats->firstedited)).'</b><br />';
@@ -176,9 +215,7 @@
 		echo '</div>';
 		echo '<div style="clear: both"></div>';
 		echo '</div>';
-		
-		
-		
+			
 	}
 	
     print_simple_box_end();

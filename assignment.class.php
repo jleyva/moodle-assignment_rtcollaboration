@@ -44,7 +44,13 @@ class assignment_rtcollaboration extends assignment_base {
 
         add_to_log($this->course->id, "assignment", "view", "view.php?id={$this->cm->id}", $this->assignment->id, $this->cm->id);
 
-        $this->view_header();        
+		
+		$this->view_header();        
+        
+		if(has_capability('mod/assignment:grade', $context)){
+			echo '<div class="reportlink"><a href="'.$CFG->wwwroot.'/mod/assignment/type/rtcollaboration/text.php?id='.$this->cm->id.'&mode=textstatistics">'.(get_string('viewusersactivity','assignment_rtcollaboration')).'</a></div>';
+		}
+		
         $this->view_intro();
         $this->view_dates();
         
