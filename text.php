@@ -101,7 +101,13 @@
 	}    
 	
 	// OUTPUT
-    print_header(format_string($assignment->name));
+
+	$title = format_string($assignment->name);
+	$navlinks = array();
+	$navlinks[] = array('name' => get_string('viewusersactivity','assignment_rtcollaboration'), 'link' => null, 'type' => 'title');
+	$navigation = build_navigation($navlinks, $cm);
+	
+	print_header($title, $course->fullname, $navigation, "", "", true);
     
 	
 	print_simple_box_start('center', '', '', '', 'generalbox', 'dates');

@@ -66,7 +66,10 @@ class assignment_rtcollaboration extends assignment_base {
                 --></script>';
                     
             $textdisabled = ($canedit)? '': 'disabled="disabled"';
-            echo '<TEXTAREA ID="rteditor'.$this->assignment->id.'" STYLE="width: 100%; height: 100%" rows="30" '.$textdisabled.'></TEXTAREA>';
+			echo '<TEXTAREA ID="rteditor'.$this->assignment->id.'" STYLE="width: 100%; height: 100%" rows="30" '.$textdisabled.'></TEXTAREA>';
+			print_box_start('generalbox centerpara boxwidthnormal boxaligncenter');
+			print_single_button("$CFG->wwwroot/course/view.php", array('id'=>$this->course->id), get_string('back'));
+			print_box_end();
         }
 		else{
 			print_simple_box(format_text($submission->data1), 'center', '100%');
