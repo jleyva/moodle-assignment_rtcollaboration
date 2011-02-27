@@ -9,8 +9,9 @@
 	$string['reviewtextedition'] = 'Review text edition';
 	$string['firstedited'] = 'First edited: ';
 	$string['lastedited'] = 'Last edited: ';
-	$string[''] = '';
-	
+	$string['currentlyviewing'] = 'Currently viewing: ';
+	$string['submitedtext'] = 'Submited text for evaluation';
+	$string['currenttext'] = 'Current text';
 	
 	$string[''] = '';
 ?>

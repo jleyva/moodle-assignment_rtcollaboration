@@ -15,7 +15,14 @@ function rcollaborationGetDiff(){
 
 function rcollaborationGetDiffSuccess(o){    
     var diffs = YAHOO.lang.JSON.parse(o.responseText);
+	var addc, delc, diffc = 0;
+	var el = null;
+	
+	YAHOO.util.Dom.setStyle(YAHOO.util.Dom.getElementsByClassName('rtuserrow'),'background-color','white');
+	
+	
 	if(diffs.length > 0){
+		var first = true;
 		for(var diff in diffs){
 			if(diffs[diff].fulldump == 1){
 				rcollaborationMaintext.value = decodeURI(diffs[diff].diff);
@@ -29,7 +36,31 @@ function rcollaborationGetDiffSuccess(o){
 				}          
 			}
 			rcollaborationDiffId = diffs[diff].id;
+			
+			if(first){
+				el = YAHOO.util.Dom.get('diffc'+diffs[diff].userid);
+				el.innerHTML = '0';
+			}
+			
+			addc = parseInt(diffs[diff].charsadded);
+			delc = parseInt(diffs[diff].charsdeleted);
+			if(addc){
+				el = YAHOO.util.Dom.get('addc'+diffs[diff].userid);
+				el.innerHTML = parseInt(el.innerHTML) + addc + '';
+				YAHOO.util.Dom.setStyle(el,'background-color','yellow');
+				el = YAHOO.util.Dom.get('diffc'+diffs[diff].userid);
+				el.innerHTML = parseInt(el.innerHTML) + addc + '';
+				YAHOO.util.Dom.setStyle(el,'background-color','yellow');
+			}
+			if(delc){			
+				el = YAHOO.util.Dom.get('delc'+diffs[diff].userid);
+				el.innerHTML = parseInt(el.innerHTML) + delc + '';
+				YAHOO.util.Dom.setStyle('delc'+diffs[diff].userid,'background-color','yellow');
+			}			
+
+			first = false;
 		}
+		YAHOO.util.Dom.get('currentedit').innerHTML = '<b>'+diffs[diff].date+'</b>';
 		setTimeout('rcollaborationGetDiff()', 2000);
 	}
 	else{

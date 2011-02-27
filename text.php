@@ -65,6 +65,7 @@
         $jsonresponse = array();
         if($diffs){
             foreach($diffs as $d){
+				$d->date = userdate($d->timestamp);
                 $jsonresponse[] = $d;
             }
         }
@@ -93,14 +94,13 @@
     
 	if ($mode == 'overview'){
 			
-		$usertext = '';
+		$submitedtext = '';
+		$currenttext = $text->text;
+		
 		// The text was submited at least one time
 		// Text submission is not done by the student, a cron job or a teacher force it
 		if ($submission = $assignmentinstance->get_submission($userid)) {
-			$usertext = $submission->data1;
-		}
-		else{
-			$usertext = $text->text;
+			$submitedtext = $submission->data1;
 		}
 		
 		if($userid != $USER->id)
@@ -119,9 +119,19 @@
 			echo get_string('userhasnotparticipate','assignment_rtcollaboration');
 		}
 		
+		print_heading(get_string('submitedtext','assignment_rtcollaboration').' ('.userdate($submission->timemodified).')');
+		if($submitedtext)
+			print_simple_box(format_text($submitedtext, FORMAT_PLAIN), 'center', '100%');
+		else
+			echo get_string('none');
+			
+		print_heading(get_string('currenttext','assignment_rtcollaboration').' ('.userdate($lastedited).')');
+		if($currenttext)
+			print_simple_box(format_text($currenttext, FORMAT_PLAIN), 'center', '100%');
+		else
+			echo get_string('none');
 		
-		print_simple_box(format_text($usertext, FORMAT_PLAIN), 'center', '100%');
-    }
+	}
 	else if($mode == 'textstatistics' && $cangrade){
 		if($stats = get_records_sql("SELECT u.id, u.firstname, u.lastname, SUM(d.charsadded) as totalcharsadded, SUM(d.charsdeleted) as totalcharsdeleted, MAX(d.timestamp) as lastedited, MIN(d.timestamp) as firstedited FROM {$CFG->prefix}assignment_rtcollab_diff d, {$CFG->prefix}assignment_rtcollab_view v, {$CFG->prefix}user u WHERE u.id = d.userid AND v.userid = d.userid AND d.textid = {$text->id} GROUP BY d.userid ORDER BY totalcharsadded DESC")){
 			$table = new stdclass;
@@ -138,8 +148,38 @@
 			var textId = '.$text->id.';
 		
 		--></script>';
-		echo '<TEXTAREA ID="maintext" STYLE="width: 100%; height: 100%" rows="30" disabled="disabled"></TEXTAREA>';
-    }
+		
+		if($stats = get_record_sql("SELECT MAX(d.timestamp) as lastedited, MIN(d.timestamp) as firstedited FROM {$CFG->prefix}assignment_rtcollab_diff d WHERE d.textid = {$text->id}")){
+			echo get_string('firstedited','assignment_rtcollaboration').' <b>'.(userdate($stats->firstedited)).'</b><br />';
+			echo get_string('lastedited','assignment_rtcollaboration').'  <b>'.(userdate($stats->lastedited)).'</b><br />';		
+		}
+		echo get_string('currentlyviewing','assignment_rtcollaboration').' <span id="currentedit"></span><br />';
+		
+		echo '<div style="display: block; width: 99%">';
+		echo '<div style="width: 80%; float: left">';
+		echo '<TEXTAREA ID="maintext" STYLE="width: 90%; height: 100%" rows="30" disabled="disabled"></TEXTAREA>';
+		echo '</div>';
+		// Users table
+		
+		if($users = get_records_sql("SELECT u.id, u.firstname, u.lastname, SUM(charsadded) as totalcharsadded FROM {$CFG->prefix}assignment_rtcollab_diff d, {$CFG->prefix}user u WHERE u.id = d.userid AND d.textid = {$text->id} GROUP BY d.userid ORDER BY totalcharsadded DESC")){
+			$table = new stdclass;
+			$table->head = array(get_string('user'),'+','-','');
+			$table->width = "100%";
+			foreach($users as $u){
+				$table->data[] = array('<a href="text.php?id='.$id.'&userid='.$u->id.'">'.(fullname($u)).'</a>','<span id="addc'.$u->id.'" class="rtuserrow">0</span>','<span id="delc'.$u->id.'" class="rtuserrow">0</span>','<span id="diffc'.$u->id.'" class="rtuserrow">0</span>');
+			}
+			}
+		
+		echo '<div style="float: right; width: 20%">';
+		echo '<br />';
+		print_table($table);
+		echo '</div>';
+		echo '<div style="clear: both"></div>';
+		echo '</div>';
+		
+		
+		
+	}
 	
     print_simple_box_end();
     print_footer();    
