@@ -15,6 +15,7 @@
 
 include('../../../../config.php');
 
+
 // Credits: https://github.com/nuxodin/diff_match_patch-php
 require('diff_match_patch.php');
 require('../../lib.php');
@@ -33,6 +34,7 @@ function mobwrite_dmp(){
 define('MAX_CHARS', 100000);
 define('MAX_LOCK_TIME', 5);
 define('EDITOR_PREFIX', 'rteditor');
+define('EDITOR_SUFIX', '_editor');
 
 // For locking
 $lockedid = 0;
@@ -66,7 +68,7 @@ class TextObj {
     }
 
     function set_text($newtext, $diffs = false){
-        global $USER;
+        global $USER, $assignment;
         // Scrub the text before setting it->
         if ($newtext){
             // Keep the text within the length limit->
@@ -99,7 +101,20 @@ class TextObj {
                 $tdiff->timestamp = time();                
                 insert_record('assignment_rtcollab_diff',$tdiff);
                 
-                $this->text = $newtext;
+                if($assignment->var1){
+                    // We are using the HTML editor, so we need to clean the text                
+                    $options = new stdclass;
+                    $options->trusttext = false;
+                    $options->noclean = false;
+                    $options->smiley = false;
+                    $options->filter = false;
+                    $this->text = format_text($newtext, FORMAT_HTML, $options);
+                }
+                else{
+                    // Plain text
+                    $this->text = $newtext;
+                }
+                    
                 $this->changed = true;
                 $this->save();
             }
@@ -358,7 +373,7 @@ function mobwrite_parse_request($r){
             elseif($name == 'f' || $name == 'F'){
                 // Remember the filename and version.
                 // New, use rteditor as prefix
-                $fileid = str_replace(EDITOR_PREFIX,'',$value);
+                $fileid = str_replace(array(EDITOR_PREFIX,EDITOR_SUFIX),array('',''),$value);
                 $serverversion = $version;
                 if($version == 0){
                     $tmpviewobj = new ViewObj(array('userid'=>$USER->id, "fileid"=>$fileid));
@@ -368,7 +383,7 @@ function mobwrite_parse_request($r){
             }
             elseif($name == 'n' || $name == 'N'){
                 // Nullify this file.
-                $fileid = str_replace(EDITOR_PREFIX,'',$value);
+                $fileid = str_replace(array(EDITOR_PREFIX,EDITOR_SUFIX),array('',''),$value);
                 if($userid && $fileid){
                     $action = array();
                     $action['userid'] = $userid;
@@ -461,6 +476,7 @@ function mobwrite_apply_patches(&$viewobj, $diffs, $action){
 
 //  def generateDiffs(self, viewobj, print_username, print_filename, force): mobwrite_daemon.py
 function mobwrite_generate_diffs($viewobj, $printuserid, $printfileid, $force){
+    global $assignment;
     $output = array();
     
     if($printuserid){
@@ -468,7 +484,11 @@ function mobwrite_generate_diffs($viewobj, $printuserid, $printfileid, $force){
     }
     if($printfileid){
       // New, we must add the prefix
-      $printfileid = EDITOR_PREFIX.$printfileid;
+      if(!$assignment->var1)
+        $printfileid = EDITOR_PREFIX.$printfileid;
+      else
+        $printfileid = EDITOR_PREFIX.$printfileid.EDITOR_SUFIX;
+        
       $output[] = "F:{$viewobj->shadow_client_version}:$printfileid\n";
     }
     
@@ -682,6 +702,7 @@ function mobwrite_do_actions($actions){
 
 $id = optional_param('id', 0, PARAM_INT);  // Course Module ID
 $a  = optional_param('a', 0, PARAM_INT);   // Assignment ID
+$groupid = optional_param('groupid',0,PARAM_INT);
 
 $r = (isset($_POST['q']))? $_POST['q'] : '';  // Request
 // TODO - Sanitize var, take care with diff positions and contents
@@ -750,7 +771,14 @@ if(! $editable){
 
 if($r){
     // User group
-    $currentgroup = $assignmentinstance->user_group();
+    $groupmode = groups_get_activity_groupmode($cm);
+    if($groupmode){
+        // TODO - Some check, I avoid the check for performance issues
+        $currentgroup = (groups_is_member($groupid))? $groupid : 0;
+    }
+    else{
+        $currentgroup = 0;
+    }
     
     //$r = preg_replace('/%([0-9a-f]{2})/ie', 'chr(hexdec($1))', (string) $r);
     //$r = rawurldecode($r);

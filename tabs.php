@@ -10,10 +10,10 @@ $top = array();
 $top[] = new tabobject('overview',$baselink.'&mode=overview', get_string('overview','assignment_rtcollaboration'));
 
 if($cangrade)
-	$top[] = new tabobject('textstatistics',$baselink.'&mode=textstatistics&groupid='.$groupid, get_string('textstatistics','assignment_rtcollaboration'));
+	$top[] = new tabobject('textstatistics',$baselink.'&mode=textstatistics&group='.$groupid, get_string('textstatistics','assignment_rtcollaboration'));
 
 if($cangrade)
-	$top[] = new tabobject('review',$baselink.'&mode=review&groupid='.$groupid, get_string('reviewtextedition','assignment_rtcollaboration'));
+	$top[] = new tabobject('review',$baselink.'&mode=review&group='.$groupid, get_string('reviewtextedition','assignment_rtcollaboration'));
 
 
 $tabs = array($top);

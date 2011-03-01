@@ -14,6 +14,11 @@
 	$string['currenttext'] = 'Current text';
 	$string['viewusersactivity'] = 'View users activity';
 	$string['noinfo'] = 'There is no data for the selected group';
-	
+    $string['chooseyourgroup'] = 'Choose your group';
+	$string['onlyviewpermissions'] = 'You have only view permissions on this group text';
+    $string['typeofeditor'] = 'Type of editor';
+    $string['plaintext'] = 'Plain Text';
+    $string['yui'] = 'YUI Rich Text Editor';
+    
 	$string[''] = '';
 ?>

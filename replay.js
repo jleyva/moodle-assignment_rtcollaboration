@@ -1,5 +1,7 @@
 var rcollaborationDiffId = 0;
 
+var rcollaborationMode = 'review';
+
 var rcollaborationDMP = new diff_match_patch();
 
 var rcollaborationCallback = {
@@ -7,10 +9,21 @@ var rcollaborationCallback = {
   failure: rcollaborationGetDiffFailure
 };
 
+var rcollaborationTextCallback = {
+  success: rcollaborationGetTextSuccess,
+  failure: rcollaborationGetTextFailure
+};
+
 var rcollaborationMaintext = null;
 
+// Get partial text
 function rcollaborationGetDiff(){
-    YAHOO.util.Connect.asyncRequest('GET', 'text.php?id='+pageId+'&mode=review&diffid='+rcollaborationDiffId, rcollaborationCallback, null);
+    YAHOO.util.Connect.asyncRequest('GET', 'text.php?id='+pageId+'&group='+groupId+'&mode='+rcollaborationMode+'&diffid='+rcollaborationDiffId, rcollaborationCallback, null);
+}
+
+// Get the full text
+function rcollaborationGetText(){
+    YAHOO.util.Connect.asyncRequest('GET', 'type/rtcollaboration/text.php?id='+pageId+'&group='+groupId+'&mode='+rcollaborationMode, rcollaborationTextCallback, null);
 }
 
 function rcollaborationGetDiffSuccess(o){    
@@ -72,12 +85,28 @@ function rcollaborationGetDiffFailure(o){
     setTimeout('rcollaborationGetDiff()', 2000);
 }
 
+function rcollaborationGetTextSuccess(o){
+    var oText = YAHOO.lang.JSON.parse(o.responseText);
+    rcollaborationMaintext.value = oText.text;
+    setTimeout('rcollaborationGetText()', 2000);
+}
+
+function rcollaborationGetTextFailure(o){
+    setTimeout('rcollaborationGetText()', 2000);
+}
+
+
 (function() {
     var Dom = YAHOO.util.Dom,
         Event = YAHOO.util.Event;
  
     Event.onDOMReady(function() {        
         rcollaborationMaintext = YAHOO.util.Dom.get('maintext');
-        rcollaborationGetDiff();        
+        if(rcollaborationMode == 'review'){ 
+            rcollaborationGetDiff();
+        }
+        else if(rcollaborationMode == 'reviewvisible'){
+            rcollaborationGetText();
+        }
     });
 })();

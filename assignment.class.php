@@ -30,6 +30,8 @@ class assignment_rtcollaboration extends assignment_base {
 
         global $USER, $CFG;
         
+        $groupid = optional_param('group',-1,PARAM_INT);
+        
         require_js($CFG->wwwroot.'/mod/assignment/type/rtcollaboration/diff_match_patch.js');
         require_js($CFG->wwwroot.'/mod/assignment/type/rtcollaboration/mobwrite_core.js');
         require_js($CFG->wwwroot.'/mod/assignment/type/rtcollaboration/mobwrite_form.js');
@@ -41,7 +43,8 @@ class assignment_rtcollaboration extends assignment_base {
 
         $submission = $this->get_submission();        
         $editable = $this->isopen() && (!$submission || $this->assignment->resubmit || !$submission->timemarked);
-
+        $visible = false;
+        
         add_to_log($this->course->id, "assignment", "view", "view.php?id={$this->cm->id}", $this->assignment->id, $this->cm->id);
 
 		
@@ -54,26 +57,129 @@ class assignment_rtcollaboration extends assignment_base {
         $this->view_intro();
         $this->view_dates();
         
-        if($editable){
-            echo '<script type="text/javascript"><!--
+        // Check for user group        
+        $firstview = false;
+        $userview = get_record('assignment_rtcollab_view','assignment',$this->assignment->id,'userid',$USER->id);
+        $groupmode = groups_get_activity_groupmode($this->cm); 
+        
+        if(!$userview){
+            if($groupmode){
+                $usergroups = groups_get_user_groups($this->course->id);
+                $countgroups = count($usergroups[0]);
+
+                if($countgroups == 0){
+                    $usergroup = 0;
+                }
+                else if($countgroups >= 1){
+                    $usergroup = $usergroups[0][0];
+                }
+                // else if(! $usergroup || !group_is_member($usergroup)){ 
+                    // echo get_string('chooseyourgroup','assignment_rtcollaboration');
+                    // groups_print_activity_menu($this->cm, $CFG->wwwroot . "/mod/assignment/view.php?id={$cm->id}");
+                    // $this->view_footer();
+                    // die;
+                // }    
+            }
+            else{
+                $usergroup = 0;
+            }
+        }
+        else{
+            $usergroup = $userview->groupid;
+        }
+                
+        // For visible groups, the text of others groups is displayed
+        if($groupid > -1 && $groupid != $usergroup && $groupmode && ($groupmode == VISIBLEGROUPS || has_capability('moodle/site:accessallgroups', $context))){
+            $visible = true;
+            $editable = false;
+        }
+        else{
+            $groupid = $usergroup;
+        }
+        
+        // The user can edit the text and the text is editable
+        if($editable && $canedit){                              
+            // Rich text editor
+            if($this->assignment->var1){
+                $yuicssfiles = array('menu/assets/skins/sam/menu', 'button/assets/skins/sam/button', 'fonts/fonts-min', 'container/assets/skins/sam/container', 'editor/assets/skins/sam/editor');
+                $yuijsfiles = array('yahoo-dom-event/yahoo-dom-event', 'element/element-beta-min', 'container/container-min', 'menu/menu-min', 'button/button-min', 'editor/editor-min');
+                foreach($yuicssfiles as $f)
+                    echo '<link rel="stylesheet" type="text/css" href="'.$CFG->wwwroot.'/lib/yui/'.$f.'.css" /> ';
+                foreach($yuijsfiles as $f)
+                   require_js($CFG->wwwroot.'/lib/yui/'.$f.'.js');
+                
+                require_js($CFG->wwwroot.'/mod/assignment/type/rtcollaboration/mobwrite_yuirte.js');
+                
+                echo "<script type='text/javascript'>  
+                window.onload = function(){
+                    var Dom = YAHOO.util.Dom,
+                        Event = YAHOO.util.Event;
+                    
+                    var myConfig = {
+                        height: '500px',
+                        width: '100%',
+                        dompath: true,
+                        animate: true,
+                        focusAtStart: true,
+                        autoHeight: true 
+                    };
+                 
+                    var myEditor = new YAHOO.widget.Editor('rteditor".$this->assignment->id."', myConfig);
+                    myEditor._defaultToolbar.buttonType = 'basic';
+                    myEditor.render();
+                    
+                    var yuiEditor = myEditor;
+                    myEditor.on('editorContentLoaded', function(){
+                        mobwrite.syncUsername = '".$USER->id."';     
+                        mobwrite.debug = false;
+                        mobwrite.syncGateway = 'type/rtcollaboration/mobwrite.php?id=".$this->cm->id."&sesskey=".$USER->sesskey."&groupid=".$groupid."';                        
+                        mobwrite.yuiEditor = myEditor;                        
+                        mobwrite.share('rteditor".$this->assignment->id."_editor');                        
+                    });
+                };
+                </script>";
+                
+                echo '<form method="post" action="#" id="form1" class="yui-skin-sam">';
+                echo '<TEXTAREA ID="rteditor'.$this->assignment->id.'" STYLE="width: 100%; height: 100%" rows="30"></TEXTAREA>';                echo '</form>';
+            }
+            else{
+                echo '<script type="text/javascript"><!--
                 window.onload = function(){
                     // We can use the full URL. Mobwrite thinks that is a remote server (no the same) so disabled ajax
                     mobwrite.syncUsername = "'.$USER->id.'";     
                     mobwrite.debug = false;
-                    mobwrite.syncGateway = "type/rtcollaboration/mobwrite.php?id='.$this->cm->id.'&sesskey='.$USER->sesskey.'";
+                    mobwrite.syncGateway = "type/rtcollaboration/mobwrite.php?id='.$this->cm->id.'&sesskey='.$USER->sesskey.'&groupid='.$groupid.'";
                     mobwrite.share("rteditor'.$this->assignment->id.'");
                 }    
-                --></script>';
-                    
-            $textdisabled = ($canedit)? '': 'disabled="disabled"';
-			echo '<TEXTAREA ID="rteditor'.$this->assignment->id.'" STYLE="width: 100%; height: 100%" rows="30" '.$textdisabled.'></TEXTAREA>';
-			print_box_start('generalbox centerpara boxwidthnormal boxaligncenter');
-			print_single_button("$CFG->wwwroot/course/view.php", array('id'=>$this->course->id), get_string('back'));
-			print_box_end();
+                --></script>';  
+                
+                echo '<TEXTAREA ID="rteditor'.$this->assignment->id.'" STYLE="width: 100%; height: 100%" rows="30"></TEXTAREA>';            
+            }
         }
+        // The user can view the others text (groups are visible)
+        else if(($editable && !$canedit) || $visible){
+            $yuijsfiles = array('yahoo-dom-event/yahoo-dom-event','yahoo/yahoo-min','json/json-min','connection/connection-min');    
+            foreach($yuijsfiles as $f)
+               require_js($CFG->wwwroot.'/lib/yui/'.$f.'.js');
+            require_js($CFG->wwwroot.'/mod/assignment/type/rtcollaboration/replay.js');
+            echo '<script type="text/javascript"><!--                
+                    var pageId = '.$this->cm->id.';
+                    var groupId = '.$groupid.';
+                    var rcollaborationMode = "reviewvisible";
+                --></script>';
+                
+            echo '<p><strong>'.get_string('onlyviewpermissions','assignment_rtcollaboration').'</strong></p>';    
+            echo '<TEXTAREA ID="maintext" STYLE="width: 100%; height: 100%; background-color: white" rows="30" disabled="disabled"></TEXTAREA>';
+        }
+        // Print my submission data
 		else{
 			print_simple_box(format_text($submission->data1), 'center', '100%');
 		}
+        
+        // Back button
+        print_box_start('generalbox centerpara boxwidthnormal boxaligncenter');
+		print_single_button("$CFG->wwwroot/course/view.php", array('id'=>$this->course->id), get_string('back'));
+		print_box_end();
 
         $this->view_feedback();
         $this->view_footer();
@@ -93,8 +199,7 @@ class assignment_rtcollaboration extends assignment_base {
 		}
 		else{
 			$stats = get_string('userhasnotparticipate','assignment_rtcollaboration');
-		}
-		
+		}		
 		
         $output = '<div class="files">'.
                   '<img src="'.$CFG->pixpath.'/f/html.gif" class="icon" alt="html" />'.
@@ -125,8 +230,8 @@ class assignment_rtcollaboration extends assignment_base {
         $mform->setHelpButton('emailteachers', array('emailteachers', get_string('emailteachers', 'assignment'), 'assignment'));
         $mform->setDefault('emailteachers', 0);
 
-        $mform->addElement('select', 'var1', get_string("commentinline", "assignment"), $ynoptions);
-        $mform->setHelpButton('var1', array('commentinline', get_string('commentinline', 'assignment'), 'assignment'));
+        $edoptions = array(get_string("plaintext", "assignment_rtcollaboration"),get_string("yui", "assignment_rtcollaboration"));
+        $mform->addElement('select', 'var1', get_string("typeofeditor", "assignment_rtcollaboration"), $edoptions);        
         $mform->setDefault('var1', 0);
 
     }
@@ -188,22 +293,20 @@ class assignment_rtcollaboration extends assignment_base {
         $this->submit_pending_submissions();
     }
 	
-	// TODO - This should be improve
-	function user_group($userid=''){
+	// User group for a existing Text / view
+	function user_group($userid=0){
 		global $USER;
 	
 		if(!$userid)
 			$userid = $USER->id;
 			
-		$groupmode    = groups_get_activity_groupmode($this->cm);
-		if(!$groupmode)	
-			return 0;
-		
-		$groups = groups_get_user_groups($this->course->id, $userid);
-		if(empty($groups[0]))
-			return 0;
-			
-		return array_shift($groups[0]);
+		$userview = get_record('assignment_rtcollab_view','assignment',$this->assignment->id,'userid',$userid);
+        if($userview){
+            return $userview->groupid;
+        }
+        else{
+            return 0;
+        }
     
 	}
 	
