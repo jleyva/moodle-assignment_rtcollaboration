@@ -133,7 +133,7 @@ class assignment_rtcollaboration extends assignment_base {
                         mobwrite.syncUsername = '".$USER->id."';     
                         mobwrite.debug = false;
                         mobwrite.syncGateway = 'type/rtcollaboration/mobwrite.php?id=".$this->cm->id."&sesskey=".$USER->sesskey."&groupid=".$groupid."';                        
-                        mobwrite.yuiEditor = myEditor;                        
+                        mobwrite.rteeditors = {'rteditor".$this->assignment->id."_editor' : myEditor};                        
                         mobwrite.share('rteditor".$this->assignment->id."_editor');                        
                     });
                 };

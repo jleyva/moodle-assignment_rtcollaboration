@@ -9,6 +9,11 @@
  * @return {boolean} Is this node part of a DOM?
  * @private
  */
+ 
+ 
+ // http://new.davglass.com/files/yui/codeeditor/code-editor.js
+ // https://gist.github.com/213360
+ 
 mobwrite.validNode_ = function(node) {
   while (node.parentNode) {
     node = node.parentNode;
@@ -53,7 +58,23 @@ mobwrite.shareYUIrte.prototype.getClientText = function() {
     mobwrite.unshare(this.file);
   }
   // From the editor to the text area
+  this.yuiEditor.saveHTML();  
+  this.element.value = this.element.value.replace('<span id=""></span>','');
+  var text = mobwrite.shareYUIrte.normalizeLinebreaks_(this.element.value.replace('<span id="cur"></span>',''));
+  if (this.element.type == 'text') {
+    // Numeric data should use overwrite mode.
+    this.mergeChanges = !text.match(/^\s*-?[\d.,]+\s*$/);
+  }
+  return text;
+};
+
+mobwrite.shareYUIrte.prototype.getClientTextCursor = function() {
+  if (!mobwrite.validNode_(this.element)) {
+    mobwrite.unshare(this.file);
+  }
+  // From the editor to the text area
   this.yuiEditor.saveHTML();
+  this.element.value = this.element.value.replace('<span id=""></span>','');
   var text = mobwrite.shareYUIrte.normalizeLinebreaks_(this.element.value);
   if (this.element.type == 'text') {
     // Numeric data should use overwrite mode.
@@ -239,22 +260,28 @@ mobwrite.shareYUIrte.prototype.patch_apply_ =
  * @private
  */
 mobwrite.shareYUIrte.prototype.captureCursor_ = function() {
-  if ('activeElement' in this.element && !this.element.activeElement) {
-    // Safari specific code.
-    // Restoring a cursor in an unfocused element causes the focus to jump.
-    return null;
-  }
+
   var padLength = this.dmp.Match_MaxBits / 2;  // Normally 16.
-  var text = this.element.value;
+  
+  var text = this.getClientText();
+  
+  // Capture selections
+  var sel = this.yuiEditor._getSelection(); 
+  var range = this.yuiEditor._getRange();
+  if(range && range.startOffset != range.endOffset){
+      var selectionEndOffset = range.endOffset - range.startOffset;
+  }
+  
+  // Cursor token at current cursor position
+  this.yuiEditor.execCommand('inserthtml', '<span id="cur"></span>');  
+  var textCursor = this.getClientTextCursor();
+  
   var cursor = {};
-  if ('selectionStart' in this.element) {  // W3
-    try {
-      var selectionStart = this.element.selectionStart;
-      var selectionEnd = this.element.selectionEnd;
-    } catch (e) {
-      // No cursor; the element may be "display:none".
-      return null;
-    }
+  
+  var selectionStart = textCursor.indexOf('<span id="cur"');
+  
+  var selectionEnd = selectionStart + selectionEndOffset;
+  
     cursor.startPrefix = text.substring(selectionStart - padLength, selectionStart);
     cursor.startSuffix = text.substring(selectionStart, selectionStart + padLength);
     cursor.startOffset = selectionStart;
@@ -264,55 +291,22 @@ mobwrite.shareYUIrte.prototype.captureCursor_ = function() {
       cursor.endSuffix = text.substring(selectionEnd, selectionEnd + padLength);
       cursor.endOffset = selectionEnd;
     }
-  } else {  // IE
-    // Walk up the tree looking for this textarea's document node.
-    var doc = this.element;
-    while (doc.parentNode) {
-      doc = doc.parentNode;
-    }
-    if (!doc.selection || !doc.selection.createRange) {
-      // Not IE?
-      return null;
-    }
-    var range = doc.selection.createRange();
-    if (range.parentElement() != this.element) {
-      // Cursor not in this textarea.
-      return null;
-    }
-    var newRange = doc.body.createTextRange();
-
-    cursor.collapsed = (range.text == '');
-    newRange.moveToElementText(this.element);
-    if (!cursor.collapsed) {
-      newRange.setEndPoint('EndToEnd', range);
-      cursor.endPrefix = newRange.text;
-      cursor.endOffset = cursor.endPrefix.length;
-      cursor.endPrefix = cursor.endPrefix.substring(cursor.endPrefix.length - padLength);
-    }
-    newRange.setEndPoint('EndToStart', range);
-    cursor.startPrefix = newRange.text;
-    cursor.startOffset = cursor.startPrefix.length;
-    cursor.startPrefix = cursor.startPrefix.substring(cursor.startPrefix.length - padLength);
-
-    newRange.moveToElementText(this.element);
-    newRange.setEndPoint('StartToStart', range);
-    cursor.startSuffix = newRange.text.substring(0, padLength);
-    if (!cursor.collapsed) {
-      newRange.setEndPoint('StartToEnd', range);
-      cursor.endSuffix = newRange.text.substring(0, padLength);
-    }
-  }
 
   // Record scrollbar locations
-  if ('scrollTop' in this.element) {
-    cursor.scrollTop = this.element.scrollTop / this.element.scrollHeight;
-    cursor.scrollLeft = this.element.scrollLeft / this.element.scrollWidth;
-  }
+  
+  var doc = this.yuiEditor._getDoc(),
+                body = doc.body,
+                docEl = doc.documentElement;
 
-  // alert(cursor.startPrefix + '|' + cursor.startSuffix + ' ' +
-  //     cursor.startOffset + '\n' + cursor.endPrefix + '|' +
-  //     cursor.endSuffix + ' ' + cursor.endOffset + '\n' +
-  //     cursor.scrollTop + ' x ' + cursor.scrollLeft);
+  if (this.yuiEditor.browser.webkit) {
+    cursor.scrollTop = docEl.scrollTop / docEl.scrollHeight;
+    cursor.scrollLeft = docEl.scrollLeft / docEl.scrollWidth;
+  }
+  else{
+    cursor.scrollTop = body.scrollTop / body.scrollHeight;
+    cursor.scrollLeft = body.scrollLeft / body.scrollWidth;
+  }
+ 
   return cursor;
 };
 
@@ -330,7 +324,8 @@ mobwrite.shareYUIrte.prototype.restoreCursor_ = function(cursor) {
   this.dmp.Match_Threshold = 0.9;
 
   var padLength = this.dmp.Match_MaxBits / 2;  // Normally 16.
-  var newText = this.element.value;
+  
+  var newText = this.getClientText();
 
   // Find the start of the selection in the new text.
   var pattern1 = cursor.startPrefix + cursor.startSuffix;
@@ -377,36 +372,23 @@ mobwrite.shareYUIrte.prototype.restoreCursor_ = function(cursor) {
     cursorEndPoint = cursorStartPoint;
   }
 
-  // Restore selection.
-  if ('selectionStart' in this.element) {  // W3
-    this.element.selectionStart = cursorStartPoint;
-    this.element.selectionEnd = cursorEndPoint;
-  } else {  // IE
-    // Walk up the tree looking for this textarea's document node.
-    var doc = this.element;
-    while (doc.parentNode) {
-      doc = doc.parentNode;
-    }
-    if (!doc.selection || !doc.selection.createRange) {
-      // Not IE?
-      return;
-    }
-    // IE's TextRange.move functions treat '\r\n' as one character.
-    var snippet = this.element.value.substring(0, cursorStartPoint);
-    var ieStartPoint = snippet.replace(/\r\n/g, '\n').length;
-
-    var newRange = doc.body.createTextRange();
-    newRange.moveToElementText(this.element);
-    newRange.collapse(true);
-    newRange.moveStart('character', ieStartPoint);
-    if (!cursor.collapsed) {
-      snippet = this.element.value.substring(cursorStartPoint, cursorEndPoint);
-      var ieMidLength = snippet.replace(/\r\n/g, '\n').length;
-      newRange.moveEnd('character', ieMidLength);
-    }
-    newRange.select();
-  }
-
+  newText = newText.substring(0, cursorStartPoint) + '<span id="cur"></span>' + newText.substring(cursorStartPoint);
+  this.yuiEditor.setEditorHTML(newText);
+  var cur = this.yuiEditor._getDoc().getElementById('cur');
+  cur.id = '';
+  cur.innerHTML = '';
+  this.yuiEditor._selectNode(cur);
+  this.fireChange(this.element);
+  
+  // var sel = this.yuiEditor._getSelection(); 
+  // var range = this.yuiEditor._getRange();
+  // range.setStart(sel.anchorNode, range.startOffset);
+  // range.setEnd(sel.anchorNode, range.startOffset + (cursorEndPoint - cursorStartPoint));
+  // console.log(range.startOffset);
+  // console.log(range.startOffset + (cursorEndPoint - cursorStartPoint));
+  // sel.removeAllRanges();
+  // sel.addRange(range);   
+  
   // Restore scrollbar locations
   if ('scrollTop' in cursor) {
     this.element.scrollTop = cursor.scrollTop * this.element.scrollHeight;
@@ -427,22 +409,26 @@ mobwrite.shareYUIrte.normalizeLinebreaks_ = function(text) {
 
 
 /**
- * Handler to accept text fields as elements that can be shared.
- * If the element is a textarea, text or password input, create a new
- * sharing object.
+ * Handler to accept YUI editors as elements that can be shared.
+ * If the element is in a list of RTE editors create a new object
  * @param {*} node Object or ID of object to share.
  * @return {Object?} A sharing object or null.
  */
 mobwrite.shareYUIrte.shareHandler = function(el) {
 
-// Add an iframe to the list of things to share.
   if (typeof el == 'string') {
-    var textarea = document.getElementById(el.replace('_editor',''));        
-       
+    if('rteeditors' in mobwrite){
+        for(var editor in mobwrite.rteeditors){
+            if(editor == el){
+                var id = el;                
+                var textarea = document.getElementById(el.replace('_editor',''));        
+                return new mobwrite.shareYUIrte(id, textarea, mobwrite.rteeditors[editor]);
+            }
+        }
+    }   
   }
-  var id = el;  
-
-  return new mobwrite.shareYUIrte(id, textarea, mobwrite.yuiEditor);
+  
+  return null;
 };
 
 
