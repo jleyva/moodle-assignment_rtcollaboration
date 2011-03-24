@@ -169,7 +169,13 @@ class assignment_rtcollaboration extends assignment_base {
                 --></script>';
                 
             echo '<p><strong>'.get_string('onlyviewpermissions','assignment_rtcollaboration').'</strong></p>';    
-            echo '<TEXTAREA ID="maintext" STYLE="width: 100%; height: 100%; background-color: white" rows="30" disabled="disabled"></TEXTAREA>';
+            
+            if($this->assignment->var1){
+                echo '<div id="maintext" style="border: black solid 1px"></div>';
+            }
+            else{
+                echo '<TEXTAREA ID="maintext" STYLE="width: 100%; height: 100%; background-color: white" rows="30" disabled="disabled"></TEXTAREA>';
+            }
         }
         // Print my submission data
 		else{

@@ -180,15 +180,17 @@
 			echo get_string('userhasnotparticipate','assignment_rtcollaboration');
 		}
 		
+        $textformat = ($assignment->var1)? FORMAT_HTML: FORMAT_PLAIN;
+        
 		print_heading(get_string('submitedtext','assignment_rtcollaboration').' ('.userdate($submission->timemodified).')');
 		if($submitedtext)
-			print_simple_box(format_text($submitedtext, FORMAT_PLAIN), 'center', '100%');
+			print_simple_box(format_text($submitedtext, $textformat), 'center', '100%');
 		else
 			echo get_string('none');
 			
 		print_heading(get_string('currenttext','assignment_rtcollaboration').' ('.userdate($lastedited).')');
 		if($currenttext)
-			print_simple_box(format_text($currenttext, FORMAT_PLAIN), 'center', '100%');
+			print_simple_box(format_text($currenttext, $textformat), 'center', '100%');
 		else
 			echo get_string('none');
 		
@@ -231,6 +233,7 @@
 		echo '<script type="text/javascript"><!--
 			var pageId = '.$id.';
 			var groupId = '.$currentgroup.';
+            var rtcollaborationRTE = '.$assignment->var1.';
 		
 		--></script>';
 		
@@ -244,7 +247,12 @@
 		
 		echo '<div style="display: block; width: 99%">';
 		echo '<div style="width: 80%; float: left">';
-		echo '<TEXTAREA ID="maintext" STYLE="width: 90%; height: 100%; background-color: white" rows="30" disabled="disabled"></TEXTAREA>';
+        if($assignment->var1){
+            echo '<div id="maintext" style="border: black solid 1px"></div>';
+        }
+        else{
+            echo '<TEXTAREA ID="maintext" STYLE="width: 90%; height: 100%; background-color: white" rows="30" disabled="disabled"></TEXTAREA>';
+        }
 		echo '</div>';
 		// Users table
 		

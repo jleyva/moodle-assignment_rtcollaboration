@@ -16,6 +16,24 @@ var rcollaborationTextCallback = {
 
 var rcollaborationMaintext = null;
 
+function rtcollaborationSetMaintext(text){
+    if(rtcollaborationRTE){
+        rcollaborationMaintext.innerHTML = text;
+    }
+    else{
+        rcollaborationMaintext.value = text;
+    }
+}
+
+function rtcollaborationGetMaintext(){
+    if(rtcollaborationRTE){
+        return rcollaborationMaintext.innerHTML;
+    }
+    else{
+        return rcollaborationMaintext.value;
+    }
+}
+
 // Get partial text
 function rcollaborationGetDiff(){
     YAHOO.util.Connect.asyncRequest('GET', 'text.php?id='+pageId+'&group='+groupId+'&mode='+rcollaborationMode+'&diffid='+rcollaborationDiffId, rcollaborationCallback, null);
@@ -38,14 +56,14 @@ function rcollaborationGetDiffSuccess(o){
 		var first = true;
 		for(var diff in diffs){
 			if(diffs[diff].fulldump == 1){
-				rcollaborationMaintext.value = decodeURI(diffs[diff].diff);
+				rtcollaborationSetMaintext(decodeURI(diffs[diff].diff));
 			}    
 			else{
 				//rcollaborationMaintext.value += decodeURI(diffs[diff].diff);
-				var dmpDiffs = rcollaborationDMP.diff_fromDelta(rcollaborationMaintext.value, diffs[diff].diff);if(dmpDiffs && (dmpDiffs.length != 1 || dmpDiffs[0][0] != DIFF_EQUAL)) {
-					var patches = rcollaborationDMP.patch_make(rcollaborationMaintext.value, dmpDiffs);
-					var serverResult = rcollaborationDMP.patch_apply(patches, rcollaborationMaintext.value);
-					rcollaborationMaintext.value = serverResult[0];
+				var dmpDiffs = rcollaborationDMP.diff_fromDelta(rtcollaborationGetMaintext(), diffs[diff].diff);if(dmpDiffs && (dmpDiffs.length != 1 || dmpDiffs[0][0] != DIFF_EQUAL)) {
+					var patches = rcollaborationDMP.patch_make(rtcollaborationGetMaintext(), dmpDiffs);
+					var serverResult = rcollaborationDMP.patch_apply(patches, rtcollaborationGetMaintext());
+					rtcollaborationSetMaintext(serverResult[0]);
 				}          
 			}
 			rcollaborationDiffId = diffs[diff].id;
@@ -87,7 +105,7 @@ function rcollaborationGetDiffFailure(o){
 
 function rcollaborationGetTextSuccess(o){
     var oText = YAHOO.lang.JSON.parse(o.responseText);
-    rcollaborationMaintext.value = oText.text;
+    rtcollaborationSetMaintext(oText.text);
     setTimeout('rcollaborationGetText()', 2000);
 }
 

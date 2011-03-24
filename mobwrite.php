@@ -98,8 +98,7 @@ class TextObj {
                     $tdiff->diff = $newtext;
                     $tdiff->fulldump = 1;
                 }
-                $tdiff->timestamp = time();                
-                insert_record('assignment_rtcollab_diff',$tdiff);
+                $tdiff->timestamp = time();          
                 
                 if($assignment->var1){
                     // We are using the HTML editor, so we need to clean the text                
@@ -109,11 +108,19 @@ class TextObj {
                     $options->smiley = false;
                     $options->filter = false;
                     $this->text = format_text($newtext, FORMAT_HTML, $options);
+                    
+                    // If the formatted text is not the same than original, it's a fulldump to the diff tables
+                    if(strlen($this->text) != strlen($newtext)){
+                        $tdiff->diff = $this->text;
+                        $tdiff->fulldump = 1;
+                    }
                 }
                 else{
                     // Plain text
                     $this->text = $newtext;
                 }
+                
+                insert_record('assignment_rtcollab_diff',$tdiff);
                     
                 $this->changed = true;
                 $this->save();
