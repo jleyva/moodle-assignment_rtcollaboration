@@ -89,7 +89,7 @@
     if($mode == 'reviewvisible'){
         $jsonresponse = array();
         
-        if ($text = get_record("assignment_rtcollab_text", "assignment", $assignment->id,'groupid',$usergroup)) {
+        if ($text = get_record("assignment_rtcollaboration_text", "assignment", $assignment->id,'groupid',$usergroup)) {
 			$jsonresponse['text'] = $text->text;
 		}        
         
@@ -101,12 +101,12 @@
     // XHR / AJAX Call
     if($mode == 'review' && $diffid > -1){		
 		$jsonresponse = array();
-		if (! $text = get_record("assignment_rtcollab_text", "assignment", $assignment->id,'groupid',$usergroup)) {
+		if (! $text = get_record("assignment_rtcollaboration_text", "assignment", $assignment->id,'groupid',$usergroup)) {
 			echo json_encode($jsonresponse);
 			die;
 		}
 		
-        $diffs = get_records_select('assignment_rtcollab_diff',"textid = {$text->id} AND id > $diffid LIMIT 5");
+        $diffs = get_records_select('assignment_rtcollaboration_diff',"textid = {$text->id} AND id > $diffid LIMIT 5");
         if($diffs){
             foreach($diffs as $d){
 				$d->date = userdate($d->timestamp);
@@ -149,7 +149,7 @@
     
         $usergroup = $groupid = $assignmentinstance->user_group($userid);
         
-        if (! $text = get_record("assignment_rtcollab_text", "assignment", $assignment->id,'groupid',$usergroup)) {
+        if (! $text = get_record("assignment_rtcollaboration_text", "assignment", $assignment->id,'groupid',$usergroup)) {
             echo get_string('noinfo','assignment_rtcollaboration');
             print_footer();
             exit;
@@ -205,7 +205,7 @@
 		echo '<div style="clear: both"></div>';
 
         $groupsql = ($currentgroup)? " AND t.groupid = $currentgroup AND v.groupid = $currentgroup " : "";                
-        $sql = "SELECT u.id, u.firstname, u.lastname, SUM(d.charsadded) as totalcharsadded, SUM(d.charsdeleted) as totalcharsdeleted, MAX(d.timestamp) as lastedited, MIN(d.timestamp) as firstedited FROM {$CFG->prefix}assignment_rtcollab_diff d, {$CFG->prefix}assignment_rtcollab_view v, {$CFG->prefix}assignment_rtcollab_text t, {$CFG->prefix}user u WHERE u.id = d.userid AND v.userid = d.userid AND v.assignment = {$assignment->id} $groupsql AND t.id = d.textid GROUP BY d.userid ORDER BY totalcharsadded DESC";
+        $sql = "SELECT u.id, u.firstname, u.lastname, SUM(d.charsadded) as totalcharsadded, SUM(d.charsdeleted) as totalcharsdeleted, MAX(d.timestamp) as lastedited, MIN(d.timestamp) as firstedited FROM {$CFG->prefix}assignment_rtcollaboration_diff d, {$CFG->prefix}assignment_rtcollaboration_view v, {$CFG->prefix}assignment_rtcollaboration_text t, {$CFG->prefix}user u WHERE u.id = d.userid AND v.userid = d.userid AND v.assignment = {$assignment->id} $groupsql AND t.id = d.textid GROUP BY d.userid ORDER BY totalcharsadded DESC";
         
 		if($stats = get_records_sql($sql)){
 			$table = new stdclass;
@@ -224,7 +224,7 @@
 		$currentgroup = ($groupmode) ? groups_get_activity_group($cm, true) : 0;
 		groups_print_activity_menu($cm, $CFG->wwwroot . "/mod/assignment/type/rtcollaboration/text.php?id={$cm->id}&userid=$userid&mode=review");
         
-        if (! $text = get_record("assignment_rtcollab_text", "assignment", $assignment->id,'groupid',$currentgroup)) {
+        if (! $text = get_record("assignment_rtcollaboration_text", "assignment", $assignment->id,'groupid',$currentgroup)) {
             echo get_string('noinfo','assignment_rtcollaboration');
             print_footer();
             exit;
@@ -239,7 +239,7 @@
 		
 		echo '<div style="clear: both"></div>';
 		
-		if($stats = get_record_sql("SELECT MAX(d.timestamp) as lastedited, MIN(d.timestamp) as firstedited FROM {$CFG->prefix}assignment_rtcollab_diff d WHERE d.textid = {$text->id}")){
+		if($stats = get_record_sql("SELECT MAX(d.timestamp) as lastedited, MIN(d.timestamp) as firstedited FROM {$CFG->prefix}assignment_rtcollaboration_diff d WHERE d.textid = {$text->id}")){
 			echo get_string('firstedited','assignment_rtcollaboration').' <b>'.(userdate($stats->firstedited)).'</b><br />';
 			echo get_string('lastedited','assignment_rtcollaboration').'  <b>'.(userdate($stats->lastedited)).'</b><br />';		
 		}
@@ -256,7 +256,7 @@
 		echo '</div>';
 		// Users table
 		
-		if($users = get_records_sql("SELECT u.id, u.firstname, u.lastname, SUM(charsadded) as totalcharsadded FROM {$CFG->prefix}assignment_rtcollab_diff d, {$CFG->prefix}user u WHERE u.id = d.userid AND d.textid = {$text->id} GROUP BY d.userid ORDER BY totalcharsadded DESC")){
+		if($users = get_records_sql("SELECT u.id, u.firstname, u.lastname, SUM(charsadded) as totalcharsadded FROM {$CFG->prefix}assignment_rtcollaboration_diff d, {$CFG->prefix}user u WHERE u.id = d.userid AND d.textid = {$text->id} GROUP BY d.userid ORDER BY totalcharsadded DESC")){
 			$table = new stdclass;
 			$table->head = array(get_string('user'),'+','-','');
 			$table->width = "100%";

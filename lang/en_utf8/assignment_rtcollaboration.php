@@ -1,5 +1,6 @@
 <?php
     
+    $string['pluginname'] = 'Collaborative real-time editor';
     $string['typertcollaboration'] = 'Collaborative real-time editor';
 	$string['charsadded'] = 'Chars added: ';
 	$string['charsdeleted'] = 'Chars deleted: ';

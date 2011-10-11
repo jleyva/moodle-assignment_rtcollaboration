@@ -59,7 +59,7 @@ class assignment_rtcollaboration extends assignment_base {
         
         // Check for user group        
         $firstview = false;
-        $userview = get_record('assignment_rtcollab_view','assignment',$this->assignment->id,'userid',$USER->id);
+        $userview = get_record('assignment_rtcollaboration_view','assignment',$this->assignment->id,'userid',$USER->id);
         $groupmode = groups_get_activity_groupmode($this->cm); 
         
         if(!$userview){
@@ -246,12 +246,12 @@ class assignment_rtcollaboration extends assignment_base {
     function submit_pending_assignments($assignments){
         if($assignments){
             foreach($assignments as $a){
-                //TODO Add indexes to assignment_rtcollab_view
-                $users = get_records('assignment_rtcollab_view','assignment',$a->id);
+                //TODO Add indexes to assignment_rtcollaboration_view
+                $users = get_records('assignment_rtcollaboration_view','assignment',$a->id);
                 if($users){
                     foreach($users as $u){
 						//TODO Get text using group
-						if(! $text = get_record('assignment_rtcollab_text','assignment', $a->id))
+						if(! $text = get_record('assignment_rtcollaboration_text','assignment', $a->id))
 							continue;
 							
                         if(! $submission = get_record('assignment_submissions','assignment',$a->id,'userid',$USER->id)){
@@ -290,7 +290,7 @@ class assignment_rtcollaboration extends assignment_base {
         $timenow = time();
 		$daysecs = 24*60*60;
         // In date assignments        
-        $assignments = get_records_sql("SELECT a.*,t.text,t.groupid FROM {$CFG->prefix}assignment a LEFT JOIN {$CFG->prefix}assignment_rtcollab_text t ON a.id = t.assignment WHERE $timenow > a.timeavailable AND (($timenow < a.timedue AND a.timedue - $timenow < $daysecs) OR ($timenow > a.timedue AND a.preventlate = 0))");
+        $assignments = get_records_sql("SELECT a.*,t.text,t.groupid FROM {$CFG->prefix}assignment a LEFT JOIN {$CFG->prefix}assignment_rtcollaboration_text t ON a.id = t.assignment WHERE $timenow > a.timeavailable AND (($timenow < a.timedue AND a.timedue - $timenow < $daysecs) OR ($timenow > a.timedue AND a.preventlate = 0))");
         $this->submit_pending_assignments($assignments);
     }
     
@@ -306,7 +306,7 @@ class assignment_rtcollaboration extends assignment_base {
 		if(!$userid)
 			$userid = $USER->id;
 			
-		$userview = get_record('assignment_rtcollab_view','assignment',$this->assignment->id,'userid',$userid);
+		$userview = get_record('assignment_rtcollaboration_view','assignment',$this->assignment->id,'userid',$userid);
         if($userview){
             return $userview->groupid;
         }
@@ -318,8 +318,8 @@ class assignment_rtcollaboration extends assignment_base {
 	
 	function get_chars_edited($userid){
 		global $CFG;
-		if($text = get_record("assignment_rtcollab_text", "assignment", $this->assignment->id,'groupid',$this->user_group($userid))){
-			if($chars = get_record_sql("SELECT SUM(charsadded) as charsadded, SUM(charsdeleted) as charsdeleted, MAX(timestamp) as lastedited, MIN(timestamp) as firstedited FROM {$CFG->prefix}assignment_rtcollab_diff WHERE textid = {$text->id} AND userid = $userid")){
+		if($text = get_record("assignment_rtcollaboration_text", "assignment", $this->assignment->id,'groupid',$this->user_group($userid))){
+			if($chars = get_record_sql("SELECT SUM(charsadded) as charsadded, SUM(charsdeleted) as charsdeleted, MAX(timestamp) as lastedited, MIN(timestamp) as firstedited FROM {$CFG->prefix}assignment_rtcollaboration_diff WHERE textid = {$text->id} AND userid = $userid")){
 				if(!empty($chars->charsadded) || !empty($chars->charsdeleted)){
 					return array($chars->charsadded, $chars->charsdeleted, $chars->firstedited, $chars->lastedited);
 				}

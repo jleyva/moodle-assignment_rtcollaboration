@@ -120,7 +120,7 @@ class TextObj {
                     $this->text = $newtext;
                 }
                 
-                insert_record('assignment_rtcollab_diff',$tdiff);
+                insert_record('assignment_rtcollaboration_diff',$tdiff);
                     
                 $this->changed = true;
                 $this->save();
@@ -147,11 +147,11 @@ class TextObj {
                 
         // The Text record is created when configuring the Moodle activity
         
-        if($text = get_record('assignment_rtcollab_text','assignment',$this->name,'groupid',$currentgroup)){
+        if($text = get_record('assignment_rtcollaboration_text','assignment',$this->name,'groupid',$currentgroup)){
             $locksql = "AND (locked = 0 OR timelocked < $timenow)";
-            //$lockedtext = get_record_select('assignment_rtcollab_text',"assignment = {$this->name} AND (groupid = 0 OR groupid = $currentgroup) $locksql");        
-            execute_sql("UPDATE {$CFG->prefix}assignment_rtcollab_text SET locked = '{$USER->id}', timelocked = '$timelocked' WHERE id = {$text->id} $locksql", false);
-            if(! $lockedtext = get_record('assignment_rtcollab_text','id',$text->id,'locked',$USER->id)){
+            //$lockedtext = get_record_select('assignment_rtcollaboration_text',"assignment = {$this->name} AND (groupid = 0 OR groupid = $currentgroup) $locksql");        
+            execute_sql("UPDATE {$CFG->prefix}assignment_rtcollaboration_text SET locked = '{$USER->id}', timelocked = '$timelocked' WHERE id = {$text->id} $locksql", false);
+            if(! $lockedtext = get_record('assignment_rtcollaboration_text','id',$text->id,'locked',$USER->id)){
                 echo "";
                 die;
             }
@@ -159,7 +159,7 @@ class TextObj {
             $this->dbid = $text->id;
             $lockedid = $this->dbid;
         }
-        else if($text = get_record('assignment_rtcollab_text','assignment',$this->name,'groupid',0)){
+        else if($text = get_record('assignment_rtcollaboration_text','assignment',$this->name,'groupid',0)){
             $this->text = $text->text;
             unset($text->id);
             $text->groupid = $currentgroup;
@@ -168,7 +168,7 @@ class TextObj {
             $text->timelocked = $timelocked;
             $text->timemodified = $timenow;
             // groupid + assignment is a UNIQUE Key
-            if(! $this->dbid = insert_record('assignment_rtcollab_text',$text)){
+            if(! $this->dbid = insert_record('assignment_rtcollaboration_text',$text)){
                 echo "";
                 die;
             }
@@ -184,7 +184,7 @@ class TextObj {
             $text->timelocked = $timelocked;
             $text->timemodified = $timenow;
             
-            if($this->dbid = insert_record('assignment_rtcollab_text', $text)){
+            if($this->dbid = insert_record('assignment_rtcollaboration_text', $text)){
                 $this->load();
             }
             else{
@@ -205,7 +205,7 @@ class TextObj {
         $text->timemodified = time();
         
         mobwrite_debug("TextObj updated in DB");
-        update_record('assignment_rtcollab_text', $text);
+        update_record('assignment_rtcollaboration_text', $text);
     }    
 }
 
@@ -255,7 +255,7 @@ class ViewObj{
         $this->userid = $data['userid'];
         $this->fileid = $data['fileid'];
         // TODO Clean times
-        if($view = get_record('assignment_rtcollab_view','userid',$this->userid,'assignment',$this->fileid)){ 
+        if($view = get_record('assignment_rtcollaboration_view','userid',$this->userid,'assignment',$this->fileid)){ 
 			$this->groupid = $view->groupid;
             $this->shadow_client_version = $view->shadow_client_version;
             $this->shadow_server_version = $view->shadow_server_version;
@@ -276,7 +276,7 @@ class ViewObj{
             $view->shadow_server_version = 0;
             $view->backup_shadow_server_version = 0;
             $view->timemodified = time();
-            if(!$this->dbid = insert_record('assignment_rtcollab_view', $view)){
+            if(!$this->dbid = insert_record('assignment_rtcollaboration_view', $view)){
                 echo "error: Database failure";
                 die;
             }
@@ -288,14 +288,14 @@ class ViewObj{
     
     // NEW; Function not present in mob_write
     function reset(){
-        if($view = get_record('assignment_rtcollab_view','userid',$this->userid,'assignment',$this->fileid)){ 
+        if($view = get_record('assignment_rtcollaboration_view','userid',$this->userid,'assignment',$this->fileid)){ 
             $view->shadow = '';
             $view->backup_shadow = '';
             $view->shadow_client_version = 0;
             $view->shadow_server_version = 0;
             $view->backup_shadow_server_version = 0;
             $view->timemodified = time();
-            update_record('assignment_rtcollab_view', $view);
+            update_record('assignment_rtcollaboration_view', $view);
         }
     }
     
@@ -313,7 +313,7 @@ class ViewObj{
         $view->shadow_server_version = $this->shadow_server_version;
         $view->backup_shadow_server_version = $this->backup_shadow_server_version;
         $view->timemodified = time();
-        update_record('assignment_rtcollab_view', $view);
+        update_record('assignment_rtcollaboration_view', $view);
     }
     
     function cleanup(){
@@ -795,7 +795,7 @@ if($r){
     echo mobwrite_do_actions($actions)."\n\n";
     // The lock is create when the Text object is loaded (last moment)
     // We release the lock just in the last moment
-    execute_sql("UPDATE {$CFG->prefix}assignment_rtcollab_text SET locked = 0 WHERE id = $lockedid", false);
+    execute_sql("UPDATE {$CFG->prefix}assignment_rtcollaboration_text SET locked = 0 WHERE id = $lockedid", false);
     die;
 }
 else{

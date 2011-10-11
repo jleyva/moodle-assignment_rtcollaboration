@@ -4,7 +4,7 @@
     xsi:noNamespaceSchemaLocation="../../../../../lib/xmldb/xmldb.xsd"
 >
   <TABLES>
-    <TABLE NAME="assignment_rtcollab_text" COMMENT="Shared text for an assignment" NEXT="assignment_rtcollab_view">
+    <TABLE NAME="assignment_rtcollaboration_text" COMMENT="Shared text for an assignment" NEXT="assignment_rtcollaboration_view">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true" ENUM="false" NEXT="assignment"/>
         <FIELD NAME="assignment" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" ENUM="false" PREVIOUS="id" NEXT="groupid"/>
@@ -23,7 +23,7 @@
         <INDEX NAME="timelocked" UNIQUE="false" FIELDS="timelocked" PREVIOUS="id-locked"/>
       </INDEXES>
     </TABLE>
-    <TABLE NAME="assignment_rtcollab_view" COMMENT="Default comment for the table, please edit me" PREVIOUS="assignment_rtcollab_text" NEXT="assignment_rtcollab_diff">
+    <TABLE NAME="assignment_rtcollaboration_view" COMMENT="Default comment for the table, please edit me" PREVIOUS="assignment_rtcollaboration_text" NEXT="assignment_rtcollaboration_diff">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true" ENUM="false" NEXT="userid"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false" ENUM="false" PREVIOUS="id" NEXT="assignment"/>
@@ -41,7 +41,7 @@
         <KEY NAME="user-assignment" TYPE="unique" FIELDS="userid, assignment" PREVIOUS="primary"/>
       </KEYS>
     </TABLE>
-    <TABLE NAME="assignment_rtcollab_diff" COMMENT="assignment_rtcollab_diff table retrofitted from MySQL" PREVIOUS="assignment_rtcollab_view">
+    <TABLE NAME="assignment_rtcollaboration_diff" COMMENT="assignment_rtcollaboration_diff table retrofitted from MySQL" PREVIOUS="assignment_rtcollaboration_view">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true" ENUM="false" NEXT="textid"/>
         <FIELD NAME="textid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" ENUM="false" PREVIOUS="id" NEXT="userid"/>
