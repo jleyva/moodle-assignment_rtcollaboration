@@ -68,7 +68,7 @@ class TextObj {
     }
 
     function set_text($newtext, $diffs = false){
-        global $USER, $assignment;
+        global $DB, $USER, $assignment;
         // Scrub the text before setting it->
         if ($newtext){
             // Keep the text within the length limit->
@@ -120,7 +120,7 @@ class TextObj {
                     $this->text = $newtext;
                 }
                 
-                insert_record('assignment_rtcollab_diff',$tdiff);
+                $DB->insert_record('assignment_rtcollaboration_diff',$tdiff);
                     
                 $this->changed = true;
                 $this->save();
@@ -135,7 +135,7 @@ class TextObj {
     }
     
     function load(){
-        global $currentgroup, $CFG, $USER, $lockedid;
+        global $DB, $currentgroup, $CFG, $USER, $lockedid;
         
         // This is a kind of a lock that I'm not pretty sure if works fine
         // TODO - Check if this works fine :)
@@ -147,11 +147,11 @@ class TextObj {
                 
         // The Text record is created when configuring the Moodle activity
         
-        if($text = get_record('assignment_rtcollab_text','assignment',$this->name,'groupid',$currentgroup)){
-            $locksql = "AND (locked = 0 OR timelocked < $timenow)";
-            //$lockedtext = get_record_select('assignment_rtcollab_text',"assignment = {$this->name} AND (groupid = 0 OR groupid = $currentgroup) $locksql");        
-            execute_sql("UPDATE {$CFG->prefix}assignment_rtcollab_text SET locked = '{$USER->id}', timelocked = '$timelocked' WHERE id = {$text->id} $locksql", false);
-            if(! $lockedtext = get_record('assignment_rtcollab_text','id',$text->id,'locked',$USER->id)){
+        if($text = $DB->get_record('assignment_rtcollaboration_text',array('assignment'=>$this->name,'groupid'=>$currentgroup))){
+            $locksql = "AND (locked = 0 OR timelocked < ?)";
+            //$lockedtext = get_record_select('assignment_rtcollaboration_text',"assignment = {$this->name} AND (groupid = 0 OR groupid = $currentgroup) $locksql");        
+            $DB->execute("UPDATE {assignment_rtcollaboration_text} SET locked = ?, timelocked = ? WHERE id = ? $locksql", array($USER->id,$timelocked,$text->id,$timenow));
+            if(! $lockedtext = $DB->get_record('assignment_rtcollaboration_text',array('id'=>$text->id,'locked'=>$USER->id))){
                 echo "";
                 die;
             }
@@ -159,7 +159,7 @@ class TextObj {
             $this->dbid = $text->id;
             $lockedid = $this->dbid;
         }
-        else if($text = get_record('assignment_rtcollab_text','assignment',$this->name,'groupid',0)){
+        else if($text = $DB->get_record('assignment_rtcollaboration_text',array('assignment'=>$this->name,'groupid'=>0))){
             $this->text = $text->text;
             unset($text->id);
             $text->groupid = $currentgroup;
@@ -168,7 +168,7 @@ class TextObj {
             $text->timelocked = $timelocked;
             $text->timemodified = $timenow;
             // groupid + assignment is a UNIQUE Key
-            if(! $this->dbid = insert_record('assignment_rtcollab_text',$text)){
+            if(! $this->dbid = $DB->insert_record('assignment_rtcollaboration_text',$text)){
                 echo "";
                 die;
             }
@@ -184,7 +184,7 @@ class TextObj {
             $text->timelocked = $timelocked;
             $text->timemodified = $timenow;
             
-            if($this->dbid = insert_record('assignment_rtcollab_text', $text)){
+            if($this->dbid = $DB->insert_record('assignment_rtcollaboration_text', $text)){
                 $this->load();
             }
             else{
@@ -195,7 +195,7 @@ class TextObj {
     }
 
     function save(){
-        global $currentgroup;
+        global $DB, $currentgroup;
         
         $text = new stdclass();
         $text->id = $this->dbid;
@@ -205,12 +205,12 @@ class TextObj {
         $text->timemodified = time();
         
         mobwrite_debug("TextObj updated in DB");
-        update_record('assignment_rtcollab_text', $text);
+        $DB->update_record('assignment_rtcollaboration_text', $text);
     }    
 }
 
 function mobwrite_debug($msg){
-    global $USER;
+    global $DB, $USER;
     if($USER->id == 3)
         trigger_error($USER->username.': '.$msg, E_USER_NOTICE);
 }
@@ -250,12 +250,12 @@ class ViewObj{
 	var $groupid = 0;
     
     function ViewObj($data){
-		global $currentgroup;
+		global $DB, $currentgroup;
 		
         $this->userid = $data['userid'];
         $this->fileid = $data['fileid'];
         // TODO Clean times
-        if($view = get_record('assignment_rtcollab_view','userid',$this->userid,'assignment',$this->fileid)){ 
+        if($view = $DB->get_record('assignment_rtcollaboration_view',array('userid'=>$this->userid,'assignment'=>$this->fileid))){ 
 			$this->groupid = $view->groupid;
             $this->shadow_client_version = $view->shadow_client_version;
             $this->shadow_server_version = $view->shadow_server_version;
@@ -276,7 +276,7 @@ class ViewObj{
             $view->shadow_server_version = 0;
             $view->backup_shadow_server_version = 0;
             $view->timemodified = time();
-            if(!$this->dbid = insert_record('assignment_rtcollab_view', $view)){
+            if(!$this->dbid = $DB->insert_record('assignment_rtcollaboration_view', $view)){
                 echo "error: Database failure";
                 die;
             }
@@ -288,19 +288,22 @@ class ViewObj{
     
     // NEW; Function not present in mob_write
     function reset(){
-        if($view = get_record('assignment_rtcollab_view','userid',$this->userid,'assignment',$this->fileid)){ 
+        global $DB;
+        if($view = $DB->get_record('assignment_rtcollaboration_view',array('userid'=>$this->userid,'assignment'=>$this->fileid))){ 
             $view->shadow = '';
             $view->backup_shadow = '';
             $view->shadow_client_version = 0;
             $view->shadow_server_version = 0;
             $view->backup_shadow_server_version = 0;
             $view->timemodified = time();
-            update_record('assignment_rtcollab_view', $view);
+            $DB->update_record('assignment_rtcollaboration_view', $view);
         }
     }
     
     // NEW; Function not present in mob_write, needed for persistency in DB
     function save(){
+        global $DB;
+        
         // TODO
         $view = new stdclass();
         $view->id = $this->dbid;
@@ -313,7 +316,7 @@ class ViewObj{
         $view->shadow_server_version = $this->shadow_server_version;
         $view->backup_shadow_server_version = $this->backup_shadow_server_version;
         $view->timemodified = time();
-        update_record('assignment_rtcollab_view', $view);
+        $DB->update_record('assignment_rtcollaboration_view', $view);
     }
     
     function cleanup(){
@@ -334,7 +337,7 @@ function mobwrite_fetchviewobj($userid, $fileid){
 
 // def parseRequest(self, data): mobwrite_core.py
 function mobwrite_parse_request($r){
-    global $USER;
+    global $DB, $USER;
     
     $lines = explode("\n",$r);
     
@@ -483,7 +486,7 @@ function mobwrite_apply_patches(&$viewobj, $diffs, $action){
 
 //  def generateDiffs(self, viewobj, print_username, print_filename, force): mobwrite_daemon.py
 function mobwrite_generate_diffs($viewobj, $printuserid, $printfileid, $force){
-    global $assignment;
+    global $DB, $assignment;
     $output = array();
     
     if($printuserid){
@@ -720,21 +723,21 @@ if ($id) {
         die;
     }
 
-    if (! $assignment = get_record("assignment", "id", $cm->instance)) {
+    if (! $assignment = $DB->get_record("assignment", array("id" => $cm->instance))) {
         echo "error: assignment ID was incorrect";
         die;
     }
 
-    if (! $course = get_record("course", "id", $assignment->course)) {
+    if (! $course = $DB->get_record("course", array("id" => $assignment->course))) {
         echo "error: Course is misconfigured";
         die;
     }
 } else {
-    if (!$assignment = get_record("assignment", "id", $a)) {
+    if (!$assignment = $DB->get_record("assignment", array("id"=> $a))) {
         echo "error: Course module is incorrect";
         die;
     }
-    if (! $course = get_record("course", "id", $assignment->course)) {
+    if (! $course = $DB->get_record("course", array("id"=>$assignment->course))) {
         echo "error: Course is misconfigured";
         die;
     }
@@ -795,7 +798,7 @@ if($r){
     echo mobwrite_do_actions($actions)."\n\n";
     // The lock is create when the Text object is loaded (last moment)
     // We release the lock just in the last moment
-    execute_sql("UPDATE {$CFG->prefix}assignment_rtcollab_text SET locked = 0 WHERE id = $lockedid", false);
+    $DB->execute("UPDATE {assignment_rtcollaboration_text} SET locked = ? WHERE id = ?", array(0,$lockedid));
     die;
 }
 else{

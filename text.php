@@ -16,15 +16,15 @@
         error("Course Module ID was incorrect");
     }
 
-    if (! $assignment = get_record("assignment", "id", $cm->instance)) {
+    if (! $assignment = $DB->get_record("assignment", array("id" => $cm->instance))) {
         error("Assignment ID was incorrect");
     }
 
-    if (! $course = get_record("course", "id", $assignment->course)) {
+    if (! $course = $DB->get_record("course", array("id" => $assignment->course))) {
         error("Course is misconfigured");
     }
 
-	if ($userid && ! $user = get_record("user", "id", $userid)) {
+	if ($userid && ! $user = $DB->get_record("user", array("id" => $userid))) {
         error("User is misconfigured");
     }	
 	$userid = (isset($user) && $user->id)? $user->id : $USER->id;
@@ -89,7 +89,7 @@
     if($mode == 'reviewvisible'){
         $jsonresponse = array();
         
-        if ($text = get_record("assignment_rtcollab_text", "assignment", $assignment->id,'groupid',$usergroup)) {
+        if ($text = $DB->get_record("assignment_rtcollaboration_text", array("assignment"=>$assignment->id,'groupid'=>$usergroup))) {
 			$jsonresponse['text'] = $text->text;
 		}        
         
@@ -101,12 +101,12 @@
     // XHR / AJAX Call
     if($mode == 'review' && $diffid > -1){		
 		$jsonresponse = array();
-		if (! $text = get_record("assignment_rtcollab_text", "assignment", $assignment->id,'groupid',$usergroup)) {
+		if (! $text = $DB->get_record("assignment_rtcollaboration_text", array("assignment"=> $assignment->id,'groupid'=>$usergroup))) {
 			echo json_encode($jsonresponse);
 			die;
 		}
 		
-        $diffs = get_records_select('assignment_rtcollab_diff',"textid = {$text->id} AND id > $diffid LIMIT 5");
+        $diffs = $DB->get_records_select('assignment_rtcollaboration_diff',"textid = ? AND id > ? LIMIT 5",array($text->id,$diffid));
         if($diffs){
             foreach($diffs as $d){
 				$d->date = userdate($d->timestamp);
@@ -120,25 +120,25 @@
     
 	// Normal mode does not require js
 	if($mode == 'review'){
-		$yuijsfiles = array('yahoo-dom-event/yahoo-dom-event','yahoo/yahoo-min','json/json-min','connection/connection-min');    
-		foreach($yuijsfiles as $f)
-		   require_js($CFG->wwwroot.'/lib/yui/'.$f.'.js');
-	
-		require_js($CFG->wwwroot.'/mod/assignment/type/rtcollaboration/diff_match_patch.js');
-		require_js($CFG->wwwroot.'/mod/assignment/type/rtcollaboration/replay.js');
+		echo html_writer::script('', $CFG->wwwroot.'/mod/assignment/type/rtcollaboration/yuipacked.js');	
+		echo html_writer::script('',$CFG->wwwroot.'/mod/assignment/type/rtcollaboration/diff_match_patch.js');
+		echo html_writer::script('',$CFG->wwwroot.'/mod/assignment/type/rtcollaboration/replay.js');
 	}    
 	
 	// OUTPUT
 
 	$title = format_string($assignment->name);
-	$navlinks = array();
-	$navlinks[] = array('name' => get_string('viewusersactivity','assignment_rtcollaboration'), 'link' => null, 'type' => 'title');
-	$navigation = build_navigation($navlinks, $cm);
 	
-	print_header($title, $course->fullname, $navigation, "", "", true);
+    $PAGE->set_context($context);
+    $PAGE->set_course($course);
+    $PAGE->set_url($FULLME);
+    $PAGE->navbar->add(get_string('viewusersactivity','assignment_rtcollaboration'));
+    $PAGE->set_title($title);
+    $PAGE->set_heading($course->fullname);
     
-	
-	print_simple_box_start('center', '', '', '', 'generalbox', 'dates');
+	echo $OUTPUT->header();
+    	
+	echo $OUTPUT->box_start();
 	
 	$currenttab = $mode;
 	if($cangrade)
@@ -149,9 +149,9 @@
     
         $usergroup = $groupid = $assignmentinstance->user_group($userid);
         
-        if (! $text = get_record("assignment_rtcollab_text", "assignment", $assignment->id,'groupid',$usergroup)) {
+        if (! $text = $DB->get_record("assignment_rtcollaboration_text", array("assignment"=> $assignment->id,'groupid'=>$usergroup))) {
             echo get_string('noinfo','assignment_rtcollaboration');
-            print_footer();
+            echo $OUTPUT->footer();
             exit;
         }
 			
@@ -165,9 +165,9 @@
 		}
 		
 		if($userid != $USER->id)
-			print_heading(fullname($user));
+			echo $OUTPUT->heading(fullname($user));
 		else
-			print_heading(fullname($USER));
+			echo $OUTPUT->heading(fullname($USER));
 			
 		list($charsadded, $charsdeleted, $firstedited, $lastedited) = $assignmentinstance->get_chars_edited($userid);
 		if(!empty($charsadded) || !empty($charsdeleted)){
@@ -182,17 +182,26 @@
 		
         $textformat = ($assignment->var1)? FORMAT_HTML: FORMAT_PLAIN;
         
-		print_heading(get_string('submitedtext','assignment_rtcollaboration').' ('.userdate($submission->timemodified).')');
-		if($submitedtext)
-			print_simple_box(format_text($submitedtext, $textformat), 'center', '100%');
-		else
+		if($submission)
+            echo $OUTPUT->heading(get_string('submitedtext','assignment_rtcollaboration').' ('.userdate($submission->timemodified).')');
+		if($submitedtext){
+            echo $OUTPUT->box_start();
+			echo format_text($submitedtext, $textformat);
+            echo $OUTPUT->box_end();
+		}
+        else{
 			echo get_string('none');
+        }
 			
-		print_heading(get_string('currenttext','assignment_rtcollaboration').' ('.userdate($lastedited).')');
-		if($currenttext)
-			print_simple_box(format_text($currenttext, $textformat), 'center', '100%');
-		else
+		echo $OUTPUT->heading(get_string('currenttext','assignment_rtcollaboration').' ('.userdate($lastedited).')');
+		if($currenttext){			
+            echo $OUTPUT->box_start();
+			echo format_text($currenttext, $textformat);
+            echo $OUTPUT->box_end();
+        }
+		else{
 			echo get_string('none');
+        }
 		
 	}
 	else if($mode == 'textstatistics' && $cangrade){
@@ -204,16 +213,19 @@
 	
 		echo '<div style="clear: both"></div>';
 
-        $groupsql = ($currentgroup)? " AND t.groupid = $currentgroup AND v.groupid = $currentgroup " : "";                
-        $sql = "SELECT u.id, u.firstname, u.lastname, SUM(d.charsadded) as totalcharsadded, SUM(d.charsdeleted) as totalcharsdeleted, MAX(d.timestamp) as lastedited, MIN(d.timestamp) as firstedited FROM {$CFG->prefix}assignment_rtcollab_diff d, {$CFG->prefix}assignment_rtcollab_view v, {$CFG->prefix}assignment_rtcollab_text t, {$CFG->prefix}user u WHERE u.id = d.userid AND v.userid = d.userid AND v.assignment = {$assignment->id} $groupsql AND t.id = d.textid GROUP BY d.userid ORDER BY totalcharsadded DESC";
+        $groupsql = ($currentgroup)? " AND t.groupid = ? AND v.groupid = ? " : "";                
+        $sql = "SELECT u.id, u.firstname, u.lastname, SUM(d.charsadded) as totalcharsadded, SUM(d.charsdeleted) as totalcharsdeleted, MAX(d.timestamp) as lastedited, MIN(d.timestamp) as firstedited FROM {assignment_rtcollaboration_diff} d, {assignment_rtcollaboration_view} v, {assignment_rtcollaboration_text} t, {user} u WHERE u.id = d.userid AND v.userid = d.userid AND v.assignment = ? $groupsql AND t.id = d.textid GROUP BY d.userid ORDER BY totalcharsadded DESC";
+        $params = array($assignment->id);
+        if($groupsql)
+            $params += array($currentgroup, $currentgroup);
         
-		if($stats = get_records_sql($sql)){
-			$table = new stdclass;
+		if($stats = $DB->get_records_sql($sql,$params)){
+			$table = new html_table();
 			$table->head = array(get_string('user'),get_string('charsadded','assignment_rtcollaboration'),get_string('charsdeleted','assignment_rtcollaboration'),get_string('firstedited','assignment_rtcollaboration'),get_string('lastedited','assignment_rtcollaboration'));
 			foreach($stats as $s){
 				$table->data[] = array('<a href="text.php?id='.$id.'&userid='.$s->id.'">'.(fullname($s)).'</a>',$s->totalcharsadded,$s->totalcharsdeleted,userdate($s->firstedited),userdate($s->lastedited));
 			}
-			print_table($table);
+			echo html_writer::table($table);
 		}	
 	}	
 	else if($mode == 'review' && $cangrade){
@@ -224,9 +236,9 @@
 		$currentgroup = ($groupmode) ? groups_get_activity_group($cm, true) : 0;
 		groups_print_activity_menu($cm, $CFG->wwwroot . "/mod/assignment/type/rtcollaboration/text.php?id={$cm->id}&userid=$userid&mode=review");
         
-        if (! $text = get_record("assignment_rtcollab_text", "assignment", $assignment->id,'groupid',$currentgroup)) {
+        if (! $text = $DB->get_record("assignment_rtcollaboration_text", array("assignment"=> $assignment->id,'groupid'=>$currentgroup))) {
             echo get_string('noinfo','assignment_rtcollaboration');
-            print_footer();
+            echo $OUTPUT->footer();
             exit;
         }
 
@@ -239,7 +251,7 @@
 		
 		echo '<div style="clear: both"></div>';
 		
-		if($stats = get_record_sql("SELECT MAX(d.timestamp) as lastedited, MIN(d.timestamp) as firstedited FROM {$CFG->prefix}assignment_rtcollab_diff d WHERE d.textid = {$text->id}")){
+		if($stats = $DB->get_record_sql("SELECT MAX(d.timestamp) as lastedited, MIN(d.timestamp) as firstedited FROM {assignment_rtcollaboration_diff} d WHERE d.textid = ?", array($text->id))){
 			echo get_string('firstedited','assignment_rtcollaboration').' <b>'.(userdate($stats->firstedited)).'</b><br />';
 			echo get_string('lastedited','assignment_rtcollaboration').'  <b>'.(userdate($stats->lastedited)).'</b><br />';		
 		}
@@ -256,8 +268,8 @@
 		echo '</div>';
 		// Users table
 		
-		if($users = get_records_sql("SELECT u.id, u.firstname, u.lastname, SUM(charsadded) as totalcharsadded FROM {$CFG->prefix}assignment_rtcollab_diff d, {$CFG->prefix}user u WHERE u.id = d.userid AND d.textid = {$text->id} GROUP BY d.userid ORDER BY totalcharsadded DESC")){
-			$table = new stdclass;
+		if($users = $DB->get_records_sql("SELECT u.id, u.firstname, u.lastname, SUM(charsadded) as totalcharsadded FROM {assignment_rtcollaboration_diff} d, {user} u WHERE u.id = d.userid AND d.textid = ? GROUP BY d.userid ORDER BY totalcharsadded DESC", array($text->id))){
+			$table = new html_table();
 			$table->head = array(get_string('user'),'+','-','');
 			$table->width = "100%";
 			foreach($users as $u){
@@ -267,14 +279,14 @@
 		
 		echo '<div style="float: right; width: 20%">';
 		echo '<br />';
-		print_table($table);
+		echo html_writer::table($table);
 		echo '</div>';
 		echo '<div style="clear: both"></div>';
 		echo '</div>';
 			
 	}
 	
-    print_simple_box_end();
-    print_footer();    
+    echo $OUTPUT->box_end();
+    echo $OUTPUT->footer();    
 
 ?>

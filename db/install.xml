@@ -4,15 +4,15 @@
     xsi:noNamespaceSchemaLocation="../../../../../lib/xmldb/xmldb.xsd"
 >
   <TABLES>
-    <TABLE NAME="assignment_rtcollab_text" COMMENT="Shared text for an assignment" NEXT="assignment_rtcollab_view">
+    <TABLE NAME="assignment_rtcollaboration_text" COMMENT="Shared text for an assignment" NEXT="assignment_rtcollaboration_view">
       <FIELDS>
-        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true" ENUM="false" NEXT="assignment"/>
-        <FIELD NAME="assignment" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" ENUM="false" PREVIOUS="id" NEXT="groupid"/>
-        <FIELD NAME="groupid" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" ENUM="false" PREVIOUS="assignment" NEXT="text"/>
-        <FIELD NAME="text" TYPE="text" LENGTH="big" NOTNULL="false" SEQUENCE="false" ENUM="false" PREVIOUS="groupid" NEXT="locked"/>
-        <FIELD NAME="locked" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" ENUM="false" PREVIOUS="text" NEXT="timelocked"/>
-        <FIELD NAME="timelocked" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" ENUM="false" PREVIOUS="locked" NEXT="timemodified"/>
-        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false" ENUM="false" PREVIOUS="timelocked"/>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true" NEXT="assignment"/>
+        <FIELD NAME="assignment" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="id" NEXT="groupid"/>
+        <FIELD NAME="groupid" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="assignment" NEXT="text"/>
+        <FIELD NAME="text" TYPE="text" LENGTH="big" NOTNULL="false" SEQUENCE="false" PREVIOUS="groupid" NEXT="locked"/>
+        <FIELD NAME="locked" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="text" NEXT="timelocked"/>
+        <FIELD NAME="timelocked" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="locked" NEXT="timemodified"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false" PREVIOUS="timelocked"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id" NEXT="assignment-group"/>
@@ -23,34 +23,34 @@
         <INDEX NAME="timelocked" UNIQUE="false" FIELDS="timelocked" PREVIOUS="id-locked"/>
       </INDEXES>
     </TABLE>
-    <TABLE NAME="assignment_rtcollab_view" COMMENT="Default comment for the table, please edit me" PREVIOUS="assignment_rtcollab_text" NEXT="assignment_rtcollab_diff">
+    <TABLE NAME="assignment_rtcollaboration_view" COMMENT="Default comment for the table, please edit me" PREVIOUS="assignment_rtcollaboration_text" NEXT="assignment_rtcollaboration_diff">
       <FIELDS>
-        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true" ENUM="false" NEXT="userid"/>
-        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false" ENUM="false" PREVIOUS="id" NEXT="assignment"/>
-        <FIELD NAME="assignment" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false" ENUM="false" PREVIOUS="userid" NEXT="groupid"/>
-        <FIELD NAME="groupid" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" ENUM="false" PREVIOUS="assignment" NEXT="shadow"/>
-        <FIELD NAME="shadow" TYPE="text" LENGTH="big" NOTNULL="false" SEQUENCE="false" ENUM="false" PREVIOUS="groupid" NEXT="backup_shadow"/>
-        <FIELD NAME="backup_shadow" TYPE="text" LENGTH="big" NOTNULL="false" SEQUENCE="false" ENUM="false" PREVIOUS="shadow" NEXT="shadow_client_version"/>
-        <FIELD NAME="shadow_client_version" TYPE="int" LENGTH="6" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" ENUM="false" PREVIOUS="backup_shadow" NEXT="shadow_server_version"/>
-        <FIELD NAME="shadow_server_version" TYPE="int" LENGTH="6" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" ENUM="false" PREVIOUS="shadow_client_version" NEXT="backup_shadow_server_version"/>
-        <FIELD NAME="backup_shadow_server_version" TYPE="int" LENGTH="6" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" ENUM="false" PREVIOUS="shadow_server_version" NEXT="timemodified"/>
-        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false" ENUM="false" PREVIOUS="backup_shadow_server_version"/>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true" NEXT="userid"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false" PREVIOUS="id" NEXT="assignment"/>
+        <FIELD NAME="assignment" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false" PREVIOUS="userid" NEXT="groupid"/>
+        <FIELD NAME="groupid" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="assignment" NEXT="shadow"/>
+        <FIELD NAME="shadow" TYPE="text" LENGTH="big" NOTNULL="false" SEQUENCE="false" PREVIOUS="groupid" NEXT="backup_shadow"/>
+        <FIELD NAME="backup_shadow" TYPE="text" LENGTH="big" NOTNULL="false" SEQUENCE="false" PREVIOUS="shadow" NEXT="shadow_client_version"/>
+        <FIELD NAME="shadow_client_version" TYPE="int" LENGTH="6" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="backup_shadow" NEXT="shadow_server_version"/>
+        <FIELD NAME="shadow_server_version" TYPE="int" LENGTH="6" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="shadow_client_version" NEXT="backup_shadow_server_version"/>
+        <FIELD NAME="backup_shadow_server_version" TYPE="int" LENGTH="6" NOTNULL="false" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="shadow_server_version" NEXT="timemodified"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false" PREVIOUS="backup_shadow_server_version"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id" NEXT="user-assignment"/>
         <KEY NAME="user-assignment" TYPE="unique" FIELDS="userid, assignment" PREVIOUS="primary"/>
       </KEYS>
     </TABLE>
-    <TABLE NAME="assignment_rtcollab_diff" COMMENT="assignment_rtcollab_diff table retrofitted from MySQL" PREVIOUS="assignment_rtcollab_view">
+    <TABLE NAME="assignment_rtcollaboration_diff" COMMENT="assignment_rtcollaboration_diff table retrofitted from MySQL" PREVIOUS="assignment_rtcollaboration_view">
       <FIELDS>
-        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true" ENUM="false" NEXT="textid"/>
-        <FIELD NAME="textid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" ENUM="false" PREVIOUS="id" NEXT="userid"/>
-        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" ENUM="false" PREVIOUS="textid" NEXT="charsadded"/>
-        <FIELD NAME="charsadded" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" ENUM="false" PREVIOUS="userid" NEXT="charsdeleted"/>
-        <FIELD NAME="charsdeleted" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" ENUM="false" PREVIOUS="charsadded" NEXT="diff"/>
-        <FIELD NAME="diff" TYPE="text" LENGTH="small" NOTNULL="true" SEQUENCE="false" ENUM="false" PREVIOUS="charsdeleted" NEXT="fulldump"/>
-        <FIELD NAME="fulldump" TYPE="int" LENGTH="1" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" ENUM="false" PREVIOUS="diff" NEXT="timestamp"/>
-        <FIELD NAME="timestamp" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" ENUM="false" PREVIOUS="fulldump"/>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true" NEXT="textid"/>
+        <FIELD NAME="textid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" PREVIOUS="id" NEXT="userid"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" PREVIOUS="textid" NEXT="charsadded"/>
+        <FIELD NAME="charsadded" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" PREVIOUS="userid" NEXT="charsdeleted"/>
+        <FIELD NAME="charsdeleted" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" PREVIOUS="charsadded" NEXT="diff"/>
+        <FIELD NAME="diff" TYPE="text" LENGTH="small" NOTNULL="true" SEQUENCE="false" PREVIOUS="charsdeleted" NEXT="fulldump"/>
+        <FIELD NAME="fulldump" TYPE="int" LENGTH="1" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" PREVIOUS="diff" NEXT="timestamp"/>
+        <FIELD NAME="timestamp" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" PREVIOUS="fulldump"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

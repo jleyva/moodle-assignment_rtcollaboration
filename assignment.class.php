@@ -28,13 +28,13 @@ class assignment_rtcollaboration extends assignment_base {
 
     function view() {
 
-        global $USER, $CFG;
-        
+        global $DB, $USER, $CFG, $OUTPUT, $PAGE;
+                       
         $groupid = optional_param('group',-1,PARAM_INT);
         
-        require_js($CFG->wwwroot.'/mod/assignment/type/rtcollaboration/diff_match_patch.js');
-        require_js($CFG->wwwroot.'/mod/assignment/type/rtcollaboration/mobwrite_core.js');
-        require_js($CFG->wwwroot.'/mod/assignment/type/rtcollaboration/mobwrite_form.js');
+        echo html_writer::script('', $CFG->wwwroot.'/mod/assignment/type/rtcollaboration/diff_match_patch.js');
+        echo html_writer::script('', $CFG->wwwroot.'/mod/assignment/type/rtcollaboration/mobwrite_core.js');
+        echo html_writer::script('', $CFG->wwwroot.'/mod/assignment/type/rtcollaboration/mobwrite_form.js');
         
 
         $context = get_context_instance(CONTEXT_MODULE, $this->cm->id);
@@ -59,7 +59,7 @@ class assignment_rtcollaboration extends assignment_base {
         
         // Check for user group        
         $firstview = false;
-        $userview = get_record('assignment_rtcollab_view','assignment',$this->assignment->id,'userid',$USER->id);
+        $userview = $DB->get_record('assignment_rtcollaboration_view',array('assignment'=>$this->assignment->id,'userid'=>$USER->id));
         $groupmode = groups_get_activity_groupmode($this->cm); 
         
         if(!$userview){
@@ -103,12 +103,11 @@ class assignment_rtcollaboration extends assignment_base {
             if($this->assignment->var1){
                 $yuicssfiles = array('menu/assets/skins/sam/menu', 'button/assets/skins/sam/button', 'fonts/fonts-min', 'container/assets/skins/sam/container', 'editor/assets/skins/sam/editor');
                 $yuijsfiles = array('yahoo-dom-event/yahoo-dom-event', 'element/element-beta-min', 'container/container-min', 'menu/menu-min', 'button/button-min', 'editor/editor-min');
-                foreach($yuicssfiles as $f)
-                    echo '<link rel="stylesheet" type="text/css" href="'.$CFG->wwwroot.'/lib/yui/'.$f.'.css" /> ';
-                foreach($yuijsfiles as $f)
-                   require_js($CFG->wwwroot.'/lib/yui/'.$f.'.js');
                 
-                require_js($CFG->wwwroot.'/mod/assignment/type/rtcollaboration/mobwrite_yuirte.js');
+                echo '<link rel="stylesheet" type="text/css" href="'.$CFG->wwwroot.'/mod/assignment/type/rtcollaboration/yuipacked.css" /> ';
+                echo html_writer::script('', $CFG->wwwroot.'/mod/assignment/type/rtcollaboration/yuipacked.js');
+                
+                echo html_writer::script('', $CFG->wwwroot.'/mod/assignment/type/rtcollaboration/mobwrite_yuirte.js');
                 
                 echo "<script type='text/javascript'>  
                 window.onload = function(){
@@ -160,8 +159,8 @@ class assignment_rtcollaboration extends assignment_base {
         else if(($editable && !$canedit) || $visible){
             $yuijsfiles = array('yahoo-dom-event/yahoo-dom-event','yahoo/yahoo-min','json/json-min','connection/connection-min');    
             foreach($yuijsfiles as $f)
-               require_js($CFG->wwwroot.'/lib/yui/'.$f.'.js');
-            require_js($CFG->wwwroot.'/mod/assignment/type/rtcollaboration/replay.js');
+               echo html_writer::script('', $CFG->wwwroot.'/lib/yui/'.$f.'.js');
+            echo html_writer::script('', $CFG->wwwroot.'/mod/assignment/type/rtcollaboration/replay.js');
             echo '<script type="text/javascript"><!--                
                     var pageId = '.$this->cm->id.';
                     var groupId = '.$groupid.';
@@ -183,9 +182,9 @@ class assignment_rtcollaboration extends assignment_base {
 		}
         
         // Back button
-        print_box_start('generalbox centerpara boxwidthnormal boxaligncenter');
-		print_single_button("$CFG->wwwroot/course/view.php", array('id'=>$this->course->id), get_string('back'));
-		print_box_end();
+        echo $OUTPUT->box_start('generalbox centerpara boxwidthnormal boxaligncenter');
+		echo $OUTPUT->single_button("$CFG->wwwroot/course/view.php?id=".$this->course->id, get_string('finish','assignment_rtcollaboration'));
+		echo $OUTPUT->box_end();
 
         $this->view_feedback();
         $this->view_footer();
@@ -193,7 +192,7 @@ class assignment_rtcollaboration extends assignment_base {
 
 
     function print_student_answer($userid, $return=false){
-        global $CFG;
+        global $DB, $CFG;
         if (!$submission = $this->get_submission($userid)) {
             return '';
         }
@@ -217,23 +216,24 @@ class assignment_rtcollaboration extends assignment_base {
     }
 
     function print_user_files($userid, $return=false) {
-        global $CFG;
+        global $DB, $CFG;
 
         echo $this->print_student_answer($userid, $return);
     }
 
 
     function setup_elements(&$mform) {
-        global $CFG, $COURSE;
+        global $DB, $CFG, $COURSE;
 
         $ynoptions = array( 0 => get_string('no'), 1 => get_string('yes'));
 
-        $mform->addElement('select', 'resubmit', get_string("allowresubmit", "assignment"), $ynoptions);
-        $mform->setHelpButton('resubmit', array('resubmit', get_string('allowresubmit', 'assignment'), 'assignment'));
+        $mform->addElement('select', 'resubmit', get_string("allowresubmit", "assignment"), $ynoptions);        
+        $mform->addHelpButton('resubmit', 'allowresubmit', 'assignment');
+
         $mform->setDefault('resubmit', 0);
 
-        $mform->addElement('select', 'emailteachers', get_string("emailteachers", "assignment"), $ynoptions);
-        $mform->setHelpButton('emailteachers', array('emailteachers', get_string('emailteachers', 'assignment'), 'assignment'));
+        $mform->addElement('select', 'emailteachers', get_string("emailteachers", "assignment"), $ynoptions);        
+        $mform->addHelpButton('emailteachers', 'emailteachers', 'assignment');
         $mform->setDefault('emailteachers', 0);
 
         $edoptions = array(get_string("plaintext", "assignment_rtcollaboration"),get_string("yui", "assignment_rtcollaboration"));
@@ -246,15 +246,15 @@ class assignment_rtcollaboration extends assignment_base {
     function submit_pending_assignments($assignments){
         if($assignments){
             foreach($assignments as $a){
-                //TODO Add indexes to assignment_rtcollab_view
-                $users = get_records('assignment_rtcollab_view','assignment',$a->id);
+                //TODO Add indexes to assignment_rtcollaboration_view
+                $users = $DB->get_records('assignment_rtcollaboration_view',array('assignment'=>$a->id));
                 if($users){
                     foreach($users as $u){
 						//TODO Get text using group
-						if(! $text = get_record('assignment_rtcollab_text','assignment', $a->id))
+						if(! $text = $DB->get_record('assignment_rtcollaboration_text',array('assignment'=> $a->id)))
 							continue;
 							
-                        if(! $submission = get_record('assignment_submissions','assignment',$a->id,'userid',$USER->id)){
+                        if(! $submission = $DB->get_record('assignment_submissions',array('assignment'=>$a->id,'userid'=>$USER->id))){
 							$submission = new stdclass;
 							$submission->assignment   = $a->id;
 							$submission->userid       = $u->userid;
@@ -269,12 +269,12 @@ class assignment_rtcollaboration extends assignment_base {
 							$submission->teacher      = 0;
 							$submission->timemarked   = 0;
 							$submission->mailed       = 0;
-							insert_record('assignment_submissions',$submission);
+							$DB->insert_record('assignment_submissions',$submission);
                         }
 						else{
 							$submission->data1        = addslashes($text->text);
 							$submission->timemodified = time();
-							update_record('assignment_submissions',$submission);
+							$DB->update_record('assignment_submissions',$submission);
 						}
                     }
                 }
@@ -285,12 +285,12 @@ class assignment_rtcollaboration extends assignment_base {
     // Check for pending submissions
     // Users does not submit theirself theirs assignments
     function submit_pending_submissions(){
-		global $CFG;
+		global $DB, $CFG;
 		
         $timenow = time();
 		$daysecs = 24*60*60;
         // In date assignments        
-        $assignments = get_records_sql("SELECT a.*,t.text,t.groupid FROM {$CFG->prefix}assignment a LEFT JOIN {$CFG->prefix}assignment_rtcollab_text t ON a.id = t.assignment WHERE $timenow > a.timeavailable AND (($timenow < a.timedue AND a.timedue - $timenow < $daysecs) OR ($timenow > a.timedue AND a.preventlate = 0))");
+        $assignments = get_records_sql("SELECT a.*,t.text,t.groupid FROM {assignment} a LEFT JOIN {assignment_rtcollaboration_text} t ON a.id = t.assignment WHERE ? > a.timeavailable AND ((? < a.timedue AND a.timedue - ? < ?) OR (? > a.timedue AND a.preventlate = ?))",array($timenow, $timenow, $timenow, $daysecs,$timenow,0));
         $this->submit_pending_assignments($assignments);
     }
     
@@ -301,12 +301,12 @@ class assignment_rtcollaboration extends assignment_base {
 	
 	// User group for a existing Text / view
 	function user_group($userid=0){
-		global $USER;
+		global $DB, $USER;
 	
 		if(!$userid)
 			$userid = $USER->id;
 			
-		$userview = get_record('assignment_rtcollab_view','assignment',$this->assignment->id,'userid',$userid);
+		$userview = $DB->get_record('assignment_rtcollaboration_view',array('assignment'=>$this->assignment->id,'userid'=>$userid));
         if($userview){
             return $userview->groupid;
         }
@@ -317,9 +317,9 @@ class assignment_rtcollaboration extends assignment_base {
 	}
 	
 	function get_chars_edited($userid){
-		global $CFG;
-		if($text = get_record("assignment_rtcollab_text", "assignment", $this->assignment->id,'groupid',$this->user_group($userid))){
-			if($chars = get_record_sql("SELECT SUM(charsadded) as charsadded, SUM(charsdeleted) as charsdeleted, MAX(timestamp) as lastedited, MIN(timestamp) as firstedited FROM {$CFG->prefix}assignment_rtcollab_diff WHERE textid = {$text->id} AND userid = $userid")){
+		global $DB, $CFG;
+		if($text = $DB->get_record("assignment_rtcollaboration_text", array("assignment"=> $this->assignment->id,'groupid'=>$this->user_group($userid)))){
+			if($chars = $DB->get_record_sql("SELECT SUM(charsadded) as charsadded, SUM(charsdeleted) as charsdeleted, MAX(timestamp) as lastedited, MIN(timestamp) as firstedited FROM {assignment_rtcollaboration_diff} WHERE textid = ? AND userid = ?",array($text->id, $userid))){
 				if(!empty($chars->charsadded) || !empty($chars->charsdeleted)){
 					return array($chars->charsadded, $chars->charsdeleted, $chars->firstedited, $chars->lastedited);
 				}
