@@ -290,7 +290,7 @@ class assignment_rtcollaboration extends assignment_base {
         $timenow = time();
 		$daysecs = 24*60*60;
         // In date assignments        
-        $assignments = get_records_sql("SELECT a.*,t.text,t.groupid FROM {assignment} a LEFT JOIN {assignment_rtcollaboration_text} t ON a.id = t.assignment WHERE ? > a.timeavailable AND ((? < a.timedue AND a.timedue - ? < ?) OR (? > a.timedue AND a.preventlate = ?))",array($timenow, $timenow, $timenow, $daysecs,$timenow,0));
+        $assignments = $DB->get_records_sql("SELECT a.*,t.text,t.groupid FROM {assignment} a LEFT JOIN {assignment_rtcollaboration_text} t ON a.id = t.assignment WHERE ? > a.timeavailable AND ((? < a.timedue AND a.timedue - ? < ?) OR (? > a.timedue AND a.preventlate = ?))",array($timenow, $timenow, $timenow, $daysecs,$timenow,0));
         $this->submit_pending_assignments($assignments);
     }
     
