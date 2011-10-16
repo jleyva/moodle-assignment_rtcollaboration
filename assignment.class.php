@@ -244,6 +244,7 @@ class assignment_rtcollaboration extends assignment_base {
     
     // We only submit assignments of users with some work done
     function submit_pending_assignments($assignments){
+		global $DB;
         if($assignments){
             foreach($assignments as $a){
                 //TODO Add indexes to assignment_rtcollaboration_view
